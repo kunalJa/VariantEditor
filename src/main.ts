@@ -371,7 +371,7 @@ export default class VariantEditor extends Plugin {
             
             if (variants.length > 0) {
               const activeIdx = typeof activeIndex === 'number' ? activeIndex : 0;
-              const variantSyntax = `{{${variants.join('|')}}^${activeIdx}`;
+                const variantSyntax = `{{${variants.join('|')}}}^${activeIdx}`;
               
               editor.replaceRange(variantSyntax, from, to);
               
