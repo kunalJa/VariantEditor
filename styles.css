@@ -163,9 +163,20 @@
 }
 
 .variant-editor-hint {
-  margin-bottom: 15px;
+  margin-top: 10px;
+  margin-bottom: 10px;
   color: var(--text-muted);
   font-size: 0.9em;
+}
+
+/* Style the variant editor modal */
+.variant-editor-modal {
+  width: 400px !important;
+  max-width: 90vw !important;
+  max-height: 80vh !important;
+  overflow-y: auto !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15) !important;
+  border: 1px solid var(--background-modifier-border) !important;
 }
 
 .variant-editor-textarea:focus {

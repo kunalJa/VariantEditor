@@ -1,4 +1,4 @@
-import { App, Modal, Setting, ButtonComponent } from 'obsidian';
+import { App, Modal, Setting, ButtonComponent, EditorPosition } from 'obsidian';
 
 /**
  * Modal for text input that appears after highlighting
@@ -10,17 +10,34 @@ export class TextInputModal extends Modal {
   private onSubmit: (result: string, activeIndex?: number, commitVariant?: boolean) => void;
   private originalText: string;
   private variantContainer: HTMLElement;
+  private cursorPosition: EditorPosition | null;
 
-  constructor(app: App, originalText: string, onSubmit: (result: string, activeIndex?: number, commitVariant?: boolean) => void) {
+  constructor(
+    app: App, 
+    originalText: string,
+    onSubmit: (result: string, activeIndex?: number, commitVariant?: boolean) => void,
+    cursorPosition: EditorPosition | null = null
+  ) {
     super(app);
     this.originalText = originalText;
     this.onSubmit = onSubmit;
-    // Initialize with the original text as the first variant
     this.variants = [originalText];
+    this.cursorPosition = cursorPosition;
   }
 
   onOpen() {
-    const {contentEl} = this;
+    const {contentEl, modalEl} = this;
+    
+    // Add a class for styling
+    modalEl.addClass('variant-editor-modal');
+    
+    // Position the modal relative to the cursor if we have cursor position
+    if (this.cursorPosition) {
+      // We need to position the modal after it's rendered
+      setTimeout(() => {
+        this.positionModalRelativeToCursor(modalEl);
+      }, 0);
+    }
     
     contentEl.createEl('h2', {text: 'Create Variants'});
     
@@ -100,25 +117,73 @@ export class TextInputModal extends Modal {
           .map((v, i) => ({ text: v.trim(), originalIndex: i }))
           .filter(v => v.text.length > 0);
         
-        if (nonEmptyVariantsWithIndices.length > 0) {
-          // Find the new index of the active variant after filtering
-          let newActiveIndex = 0;
-          for (let i = 0; i < nonEmptyVariantsWithIndices.length; i++) {
-            if (nonEmptyVariantsWithIndices[i].originalIndex === this.activeVariantIndex) {
-              newActiveIndex = i;
-              break;
+        if (nonEmptyVariantsWithIndices.length >= 2) {
+            // Find the new index of the active variant after filtering
+            let newActiveIndex = 0;
+            for (let i = 0; i < nonEmptyVariantsWithIndices.length; i++) {
+              if (nonEmptyVariantsWithIndices[i].originalIndex === this.activeVariantIndex) {
+                newActiveIndex = i;
+                break;
+              }
             }
+            
+            // Join variants with pipe character for the expected format and pass the corrected active index
+            const nonEmptyVariants = nonEmptyVariantsWithIndices.map(v => v.text);
+            this.onSubmit(nonEmptyVariants.join('|'), newActiveIndex);
           }
-          
           this.close();
-          // Join variants with pipe character for the expected format and pass the corrected active index
-          const nonEmptyVariants = nonEmptyVariantsWithIndices.map(v => v.text);
-          this.onSubmit(nonEmptyVariants.join('|'), newActiveIndex);
-        }
       })
       .buttonEl.addClass('variant-editor-button');
   }
   
+  /**
+   * Positions the modal relative to the cursor position
+   */
+  private positionModalRelativeToCursor(modalEl: HTMLElement) {
+    if (!this.cursorPosition) return;
+    
+    // Get the active editor view
+    const activeLeaf = this.app.workspace.activeLeaf;
+    if (!activeLeaf || !activeLeaf.view) return;
+    
+    // Get the editor element
+    const editorEl = activeLeaf.view.containerEl.querySelector('.cm-editor');
+    if (!editorEl) return;
+    
+    // Find the line element for the cursor position
+    const lineElements = editorEl.querySelectorAll('.cm-line');
+    if (!lineElements || lineElements.length <= this.cursorPosition.line) return;
+    
+    const lineEl = lineElements[this.cursorPosition.line];
+    if (!lineEl) return;
+    
+    // Get the position of the line element
+    const lineRect = lineEl.getBoundingClientRect();
+    
+    // Get the modal dimensions
+    const modalRect = modalEl.getBoundingClientRect();
+    
+    // Position the modal below the line with some padding
+    const padding = 10;
+    let top = lineRect.bottom + padding;
+    
+    // Make sure the modal doesn't go off the bottom of the screen
+    const viewportHeight = window.innerHeight;
+    if (top + modalRect.height > viewportHeight) {
+      // Position above the line instead
+      top = lineRect.top - modalRect.height - padding;
+    }
+    
+    // Center horizontally relative to the line
+    const left = lineRect.left + (lineRect.width / 2) - (modalRect.width / 2);
+    
+    // Apply the position
+    modalEl.style.position = 'fixed';
+    modalEl.style.top = `${Math.max(0, top)}px`;
+    modalEl.style.left = `${Math.max(0, left)}px`;
+    modalEl.style.transform = 'none';
+  }
+
   private renderVariantInputs() {
     // Clear existing inputs
     this.variantContainer.empty();

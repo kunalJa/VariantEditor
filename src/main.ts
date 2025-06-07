@@ -268,32 +268,38 @@ export default class VariantEditor extends Plugin {
       this.app.workspace.updateOptions();
       
       // Open the text input modal after highlighting with the original text
-      new TextInputModal(this.app, selectedWord, (variantText: string, activeIndex?: number, commitVariant?: boolean) => {
-        if (variantText && variantText.trim()) {
-          if (commitVariant) {
-            // If committing, just replace with the selected variant text directly
-            editor.replaceRange(variantText, from, to);
-            new Notice(`Committed variant: "${variantText}"`);
-          } else {
-            // Create the variant syntax: {{original | variant1 | variant2}}^n
-            const variants = variantText.split('|').map(v => v.trim()).filter(v => v);
-            
-            // Ensure we have at least one variant (the original text)
-            if (variants.length > 0) {
-              // Use the provided activeIndex or default to 0
-              const activeIdx = typeof activeIndex === 'number' ? activeIndex : 0;
-              const variantSyntax = `{{${variants.join(' | ')}}}^${activeIdx}`;
+      new TextInputModal(
+        this.app, 
+        selectedWord, 
+        (variantText: string, activeIndex?: number, commitVariant?: boolean) => {
+          if (variantText && variantText.trim()) {
+            if (commitVariant) {
+              // If committing, just replace with the selected variant text directly
+              editor.replaceRange(variantText, from, to);
+              new Notice(`Committed variant: "${variantText}"`);
+            } else {
+              // Create the variant syntax: {{original | variant1 | variant2}}^n
+              const variants = variantText.split('|').map(v => v.trim()).filter(v => v);
               
-              // Replace the selected text with the variant syntax
-              editor.replaceRange(variantSyntax, from, to);
-              new Notice(`Created variant with ${variants.length} options (${variants[activeIdx]} active)`);
+              // Ensure we have at least one variant (the original text)
+              if (variants.length > 0) {
+                // Use the provided activeIndex or default to 0
+                const activeIdx = typeof activeIndex === 'number' ? activeIndex : 0;
+                const variantSyntax = `{{${variants.join(' | ')}}}^${activeIdx}`;
+                
+                // Replace the selected text with the variant syntax
+                editor.replaceRange(variantSyntax, from, to);
+                new Notice(`Created variant with ${variants.length} options (${variants[activeIdx]} active)`);
+              }
             }
+            
+            // Clear highlighting after creating variant
+            this.clearHighlight();
           }
-          
-          // Clear highlighting after creating variant
-          this.clearHighlight();
-        }
-      }).open();
+        },
+        // Pass the cursor position to position the modal relative to the highlighted text
+        from
+      ).open();
 
     } catch (e) {
       console.error('Error in highlightSelection:', e);
