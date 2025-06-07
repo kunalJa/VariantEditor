@@ -30,3 +30,23 @@
   border-radius: 3px;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
 }
+
+/* Modal styles */
+.variant-editor-textarea {
+  width: 100%;
+  min-height: 150px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  padding: 8px 12px;
+  font-family: var(--font-text);
+  resize: vertical;
+  margin-bottom: 16px;
+}
+
+.variant-editor-textarea:focus {
+  outline: none;
+  border-color: var(--interactive-accent);
+  box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), 0.2);
+}

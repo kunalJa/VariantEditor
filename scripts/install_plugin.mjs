@@ -11,7 +11,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const filesToCopy = ['main.js', 'styles.css', 'manifest.json'];
-const srcDir = __dirname;
+const srcDir = path.join(__dirname, '..');
 const destDir = process.env.PLUGIN_INSTALL_DIR;
 
 if (!destDir) {
