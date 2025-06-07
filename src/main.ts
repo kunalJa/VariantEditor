@@ -1,42 +1,146 @@
 import { MarkdownView, Plugin, Notice, Editor, EditorPosition } from 'obsidian';
+import { hackToRerender } from './utils/editorUtils';
 import { TextInputModal } from './modals/TextInputModal';
 
+// Import CodeMirror modules directly as per Obsidian documentation
+import { ViewUpdate, PluginValue, EditorView, ViewPlugin, Decoration, DecorationSet } from '@codemirror/view';
+import { RangeSetBuilder, StateField, Extension } from '@codemirror/state';
+
 export default class VariantEditor extends Plugin {
+  // Track active line for dimming
+  private activeLine: number | null = null;
+  // Store the extension to update it later
+  private dimExtension: Extension | null = null;
+  // Track previous cursor line
+  private previousCursorLine: number | null = null;
  
   async onload() {
-    console.log('VariantEditor: Plugin loading...');
-    
     try {
       // Bind the method to ensure proper 'this' context
       this.highlightSelection = this.highlightSelection.bind(this);
+      this.clearHighlight = this.clearHighlight.bind(this);
       
       // Register the command with a direct function reference
       this.addCommand({
         id: 'variant-editor-highlight',
         name: 'Variant Editor: Highlight Word & Sentence',
         hotkeys: [{ modifiers: ["Mod"], key: "h" }],
-        callback: () => {
-          console.log('VariantEditor: Command callback executed');
-          this.highlightSelection();
-        }
+        callback: () => this.highlightSelection()
       });
       
-    } catch (error) {
-      console.error('VariantEditor: Error during initialization:', error);
+      // Register the clear command
+      this.addCommand({
+        id: 'variant-editor-clear-highlight',
+        name: 'Variant Editor: Clear Highlighting',
+        callback: () => this.clearHighlight()
+      });
+      
+      // Register the editor extension for dimming
+      this.dimExtension = this.createDimExtension();
+      this.registerEditorExtension(this.dimExtension);
+    } catch (e) {
+      console.error('Error during initialization:', e);
     }
   }
 
   onunload() {
     this.clearHighlight();
   }
+  
+  private createDimExtension() {
+    // Get reference to the plugin instance for the view plugin to use
+    const pluginInstance = this;
+    
+    // Create a state field to track cursor position changes
+    const cursorTrackingField = StateField.define({
+      create(state) {
+        return null;
+      },
+      update(value, transaction) {
+        if (transaction.selection) {
+          const selection = transaction.newSelection.main;
+          const currentLine = transaction.newDoc.lineAt(selection.head).number;
+          
+          // Store the current cursor line
+          if (pluginInstance.previousCursorLine === null) {
+            pluginInstance.previousCursorLine = currentLine;
+          }
+          
+          // If we have an active line and cursor moved to a different line, clear dimming
+          if (pluginInstance.activeLine !== null && 
+              currentLine !== pluginInstance.activeLine && 
+              currentLine !== pluginInstance.previousCursorLine) {
+            // Schedule clearing on next tick to avoid update-during-update
+            setTimeout(() => {
+              pluginInstance.clearHighlight();
+            }, 0);
+          }
+          
+          // Update previous cursor line
+          pluginInstance.previousCursorLine = currentLine;
+        }
+        return value;
+      }
+    });
+    
+    // Create the view plugin for decorations
+    const dimPlugin = ViewPlugin.fromClass(
+      class implements PluginValue {
+        decorations: DecorationSet;
+        
+        constructor(view: EditorView) {
+          this.decorations = this.buildDecorations(view);
+        }
+        
+        update(update: ViewUpdate) {          
+          // Update decorations if needed
+          if (update.docChanged || update.viewportChanged || pluginInstance.activeLine !== null) {
+            this.decorations = this.buildDecorations(update.view);
+          }
+        }
+        
+        buildDecorations(view: EditorView): DecorationSet {
+          // If no active line is set, return empty decorations
+          if (pluginInstance.activeLine === null) {
+            return Decoration.none;
+          }
+          
+          const builder = new RangeSetBuilder<Decoration>();
+          const activeLine = pluginInstance.activeLine;
+          
+          // Add decorations to all lines except the active one
+          for (let i = 1; i <= view.state.doc.lines; i++) {
+            if (i !== activeLine) {
+              try {
+                const line = view.state.doc.line(i);
+                const decoration = Decoration.line({
+                  attributes: { class: "fh-dim" }
+                });
+                builder.add(line.from, line.from, decoration);
+              } catch (e) {
+                console.error(`Error adding decoration to line ${i}:`, e);
+              }
+            }
+          }
+          
+          return builder.finish();
+        }
+        
+        destroy() {}
+      },
+      {
+        decorations: (instance) => instance.decorations
+      }
+    );
+    
+    // Return both extensions
+    return [cursorTrackingField, dimPlugin];
+  }
 
   private highlightSelection(): void {
     try {
-      console.log('VariantEditor: highlightSelection called');
-      
       const view = this.app.workspace.getActiveViewOfType(MarkdownView);
       if (!view) {
-        console.log('VariantEditor: No active Markdown view');
         return;
       }
 
@@ -45,27 +149,17 @@ export default class VariantEditor extends Plugin {
       const selectedWord = selectedText.trim();
       
       if (!selectedWord) {
-        console.log('VariantEditor: No text selected');
         return;
       }
-
-      const editorEl = view.contentEl;
-      if (!editorEl) {
-        console.log('VariantEditor: Could not find editor container');
-        return;
-      }
-      
-      const lines = editorEl.querySelectorAll('.cm-line');
-      console.log(`VariantEditor: Found ${lines.length} lines`);
-
-      lines.forEach(line => {
-        if (!line.classList.contains('cm-active')) {
-          (line as HTMLElement).classList.add('fh-dim')
-        }
-      });
       
       // Save cursor position for later text insertion
       const cursorPos = editor.getCursor();
+      
+      // Set active line for dimming
+      this.activeLine = cursorPos.line + 1;
+      
+      // Force editor refresh to apply decorations
+      this.app.workspace.updateOptions();
       
       // Open the text input modal after highlighting
       new TextInputModal(this.app, (inputText: string) => {
@@ -76,36 +170,24 @@ export default class VariantEditor extends Plugin {
         }
       }).open();
 
-      console.log('VariantEditor: highlightSelection completed');
-      
     } catch (e) {
-      console.error('VariantEditor: Error in highlightSelection:', e);
+      console.error('Error in highlightSelection:', e);
     }
   }
 
   private clearHighlight(): void {
     try {
-      console.log('VariantEditor: clearHighlight called');
+      // Reset active line and previous cursor line
+      this.activeLine = null;
+      this.previousCursorLine = null;
       
+      // Use the hack to force a complete re-render
       const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-      if (!view) {
-        console.log('VariantEditor: No active Markdown view in clearHighlight');
-        return;
+      if (view) {
+        hackToRerender(view);
       }
-      
-      const editorEl = view.contentEl;
-      if (!editorEl) {
-        console.log('VariantEditor: Could not find editor container in clearHighlight');
-        return;
-      }
-      
-      // Remove dim and active classes from all lines
-      const lines = editorEl.querySelectorAll('.cm-line');
-      lines.forEach(line => (line as HTMLElement).classList.remove('fh-dim'));
-      console.log('VariantEditor: clearHighlight completed');
-      
     } catch (e) {
-      console.error('VariantEditor: Error in clearHighlight:', e);
+      console.error('Error in clearHighlight:', e);
     }
   }
 }

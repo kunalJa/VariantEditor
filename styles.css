@@ -1,7 +1,8 @@
 /* Variant Editor Plugin Styles */
 
 /* Dimmed lines */
-.markdown-source-view .cm-line.fh-dim {
+.markdown-source-view .cm-line.fh-dim,
+.cm-line.fh-dim {
   opacity: 0.25;
 }
 
