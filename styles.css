@@ -1,8 +1,32 @@
-/*
+/* Variant Editor Plugin Styles */
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+/* Dimmed lines */
+.markdown-source-view .cm-line.fh-dim {
+  opacity: 0.25;
+}
 
-If your plugin does not need CSS, delete this file.
+/* Active line (contains the selected text) */
+.markdown-source-view .cm-line.fh-active {
+  opacity: 1 !important;
+  position: relative;
+  z-index: 1;
+  background-color: var(--background-primary);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--background-modifier-border);
+}
 
-*/
+/* When in sentence mode, make the active line more subtle */
+.markdown-source-view .cm-line.fh-active:not(.fh-dim) {
+  background-color: var(--background-primary);
+  box-shadow: none;
+}
+
+/* Highlighted text */
+.fh-highlight {
+  background-color: var(--text-highlight-bg);
+  color: var(--text-normal) !important;
+  font-weight: 600;
+  padding: 0 2px;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+}
