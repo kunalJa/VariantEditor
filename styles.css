@@ -43,18 +43,129 @@
   opacity: 0.9;
 }
 
+/* Variant indicator styles */
+.variant-indicator {
+  background-color: rgba(121, 184, 255, 0.2);
+  border-bottom: 1px dashed #79b8ff;
+  border-radius: 2px;
+  position: relative;
+  z-index: 5;
+}
+
 /* Modal styles */
-.variant-editor-textarea {
-  width: 100%;
-  min-height: 150px;
-  border: 1px solid var(--background-modifier-border);
+.variant-editor-container {
+  margin-bottom: 15px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 5px;
+}
+
+.variant-editor-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 6px;
   border-radius: 4px;
-  background-color: var(--background-primary);
+  background-color: var(--background-primary-alt);
+}
+
+.variant-editor-radio-container {
+  margin-right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.variant-editor-radio {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--interactive-accent);
+}
+
+.variant-editor-label {
+  width: 80px;
+  font-weight: 500;
   color: var(--text-normal);
-  padding: 8px 12px;
+  flex-shrink: 0;
+}
+
+.variant-editor-input {
+  flex-grow: 1;
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  background-color: var(--background-primary);
   font-family: var(--font-text);
-  resize: vertical;
-  margin-bottom: 16px;
+}
+
+.variant-editor-input:focus {
+  border-color: var(--interactive-accent);
+  box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), 0.2);
+  outline: none;
+}
+
+.variant-editor-delete-button {
+  margin-left: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: var(--background-modifier-error-rgb);
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  padding: 0;
+  line-height: 1;
+}
+
+.variant-editor-delete-button:hover {
+  background-color: var(--text-error);
+}
+
+.variant-editor-add-container {
+  margin-bottom: 15px;
+}
+
+.variant-editor-add-button {
+  background-color: var(--interactive-accent) !important;
+  color: var(--text-on-accent) !important;
+  padding: 4px 12px !important;
+}
+
+.variant-editor-buttons {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+  gap: 10px;
+}
+
+.variant-editor-button {
+  flex: 1;
+  padding: 8px 12px !important;
+}
+
+.variant-editor-commit-button {
+  background-color: var(--color-green) !important;
+  color: var(--text-on-accent) !important;
+}
+
+.variant-editor-original-text {
+  margin-bottom: 15px;
+  font-weight: 500;
+  color: var(--text-normal);
+  padding: 8px;
+  background-color: var(--background-secondary);
+  border-radius: 4px;
+}
+
+.variant-editor-hint {
+  margin-bottom: 15px;
+  color: var(--text-muted);
+  font-size: 0.9em;
 }
 
 .variant-editor-textarea:focus {

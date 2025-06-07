@@ -39,6 +39,9 @@ export default class VariantEditor extends Plugin {
       
       // Register the editor extension for dimming
       this.dimExtension = this.createDimExtension();
+      
+      // Register the editor extension for variant indicators
+      this.registerEditorExtension(this.createVariantIndicatorExtension());
       this.registerEditorExtension(this.dimExtension);
     } catch (e) {
       console.error('Error during initialization:', e);
@@ -49,7 +52,57 @@ export default class VariantEditor extends Plugin {
     this.clearHighlight();
   }
   
-  private createDimExtension() {
+  private createVariantIndicatorExtension(): Extension {
+    return ViewPlugin.fromClass(
+      class {
+        decorations: DecorationSet;
+        
+        constructor(view: EditorView) {
+          this.decorations = this.buildDecorations(view);
+        }
+        
+        update(update: ViewUpdate) {
+          if (update.docChanged || update.viewportChanged) {
+            this.decorations = this.buildDecorations(update.view);
+          }
+        }
+        
+        buildDecorations(view: EditorView): DecorationSet {
+          const builder = new RangeSetBuilder<Decoration>();
+          
+          // Process all visible ranges
+          for (let {from, to} of view.visibleRanges) {
+            const text = view.state.doc.sliceString(from, to);
+            
+            // Find all variant syntax matches using regex
+            const variantRegex = /\{\{([^{}]+?)\}\}\^\d+/g;
+            let match;
+            
+            while ((match = variantRegex.exec(text)) !== null) {
+              const start = from + match.index;
+              const end = start + match[0].length;
+              
+              // Add decoration for the entire variant syntax
+              builder.add(
+                start,
+                end,
+                Decoration.mark({
+                  class: "variant-indicator"
+                })
+              );
+            }
+          }
+          
+          return builder.finish();
+        }
+      },
+      {
+        decorations: v => v.decorations
+      }
+    );
+  }
+  
+  private createDimExtension(): Extension {
     // Get reference to the plugin instance for the view plugin to use
     const pluginInstance = this;
     
@@ -191,29 +244,56 @@ export default class VariantEditor extends Plugin {
         return;
       }
       
-      // Save cursor position for later text insertion
-      const cursorPos = editor.getCursor();
+      // Get selection range for replacement
+      const from = {
+        line: selection.anchor.line,
+        ch: Math.min(selection.anchor.ch, selection.head.ch)
+      };
+      
+      const to = {
+        line: selection.anchor.line,
+        ch: Math.max(selection.anchor.ch, selection.head.ch)
+      };
       
       // Store the selected text for highlighting
       this.selectedText = selectedWord;
       
       // Set active line for dimming
-      this.activeLine = cursorPos.line + 1;
+      this.activeLine = from.line + 1;
       
       // Clear the selection to prevent the selection overlay from washing out our highlight
-      editor.setCursor(cursorPos);
+      editor.setCursor(from);
       
       // Force editor refresh to apply decorations
       this.app.workspace.updateOptions();
       
-      // // Open the text input modal after highlighting
-      // new TextInputModal(this.app, (inputText: string) => {
-      //   if (inputText && inputText.trim()) {
-      //     // Insert the text at the saved cursor position
-      //     editor.replaceRange(inputText, cursorPos);
-      //     new Notice(`Text inserted at cursor position`);
-      //   }
-      // }).open();
+      // Open the text input modal after highlighting with the original text
+      new TextInputModal(this.app, selectedWord, (variantText: string, activeIndex?: number, commitVariant?: boolean) => {
+        if (variantText && variantText.trim()) {
+          if (commitVariant) {
+            // If committing, just replace with the selected variant text directly
+            editor.replaceRange(variantText, from, to);
+            new Notice(`Committed variant: "${variantText}"`);
+          } else {
+            // Create the variant syntax: {{original | variant1 | variant2}}^n
+            const variants = variantText.split('|').map(v => v.trim()).filter(v => v);
+            
+            // Ensure we have at least one variant (the original text)
+            if (variants.length > 0) {
+              // Use the provided activeIndex or default to 0
+              const activeIdx = typeof activeIndex === 'number' ? activeIndex : 0;
+              const variantSyntax = `{{${variants.join(' | ')}}}^${activeIdx}`;
+              
+              // Replace the selected text with the variant syntax
+              editor.replaceRange(variantSyntax, from, to);
+              new Notice(`Created variant with ${variants.length} options (${variants[activeIdx]} active)`);
+            }
+          }
+          
+          // Clear highlighting after creating variant
+          this.clearHighlight();
+        }
+      }).open();
 
     } catch (e) {
       console.error('Error in highlightSelection:', e);

@@ -1,53 +1,206 @@
-import { App, Modal, Setting } from 'obsidian';
+import { App, Modal, Setting, ButtonComponent } from 'obsidian';
 
 /**
  * Modal for text input that appears after highlighting
+ * Used to create variants for the selected text
  */
 export class TextInputModal extends Modal {
-  private inputText: string = '';
-  private onSubmit: (result: string) => void;
+  private variants: string[] = [];
+  private activeVariantIndex: number = 0;
+  private onSubmit: (result: string, activeIndex?: number, commitVariant?: boolean) => void;
+  private originalText: string;
+  private variantContainer: HTMLElement;
 
-  constructor(app: App, onSubmit: (result: string) => void) {
+  constructor(app: App, originalText: string, onSubmit: (result: string, activeIndex?: number, commitVariant?: boolean) => void) {
     super(app);
+    this.originalText = originalText;
     this.onSubmit = onSubmit;
+    // Initialize with the original text as the first variant
+    this.variants = [originalText];
   }
 
   onOpen() {
     const {contentEl} = this;
     
-    contentEl.createEl('h2', {text: 'Enter text to insert'});
+    contentEl.createEl('h2', {text: 'Create Variants'});
     
-    // Create text area for input
-    const textArea = contentEl.createEl('textarea', {
-      attr: {
-        placeholder: 'Type your text here...',
-        rows: '6',
-      },
-      cls: 'variant-editor-textarea'
+    // Show the original text
+    contentEl.createEl('div', {
+      text: `Original text: "${this.originalText}"`,
+      cls: 'variant-editor-original-text'
     });
     
-    textArea.addEventListener('input', (e) => {
-      this.inputText = (e.target as HTMLTextAreaElement).value;
+    // Create container for variant inputs
+    this.variantContainer = contentEl.createDiv({
+      cls: 'variant-editor-container'
     });
     
-    // Focus the textarea
-    setTimeout(() => textArea.focus(), 10);
+    // Add the first variant (original text)
+    this.renderVariantInputs();
     
-    // Add buttons
-    new Setting(contentEl)
-      .addButton(btn => btn
-        .setButtonText('Cancel')
-        .onClick(() => this.close())
-      )
-      .addButton(btn => btn
-        .setButtonText('Insert')
-        .setCta()
-        .onClick(() => {
+    // Add button to add new variant
+    const addVariantContainer = contentEl.createDiv({
+      cls: 'variant-editor-add-container'
+    });
+    
+    const addVariantButton = new ButtonComponent(addVariantContainer)
+      .setButtonText('+ Add Variant')
+      .onClick(() => {
+        this.variants.push('');
+        this.activeVariantIndex = this.variants.length - 1;
+        this.renderVariantInputs();
+      });
+    
+    addVariantButton.buttonEl.addClass('variant-editor-add-button');
+    
+    // Add explanation
+    contentEl.createEl('div', {
+      text: 'Select which variant should be active with the radio buttons',
+      cls: 'variant-editor-hint'
+    });
+    
+    // Add buttons container
+    const buttonsContainer = contentEl.createDiv({
+      cls: 'variant-editor-buttons'
+    });
+    
+    // Cancel button
+    new ButtonComponent(buttonsContainer)
+      .setButtonText('Cancel')
+      .onClick(() => this.close())
+      .buttonEl.addClass('variant-editor-button');
+    
+    // Commit active variant button
+    new ButtonComponent(buttonsContainer)
+      .setButtonText('Commit Active Variant')
+      .onClick(() => {
+        // Filter out empty variants and track their original indices
+        const nonEmptyVariantsWithIndices = this.variants
+          .map((v, i) => ({ text: v.trim(), originalIndex: i }))
+          .filter(v => v.text.length > 0);
+        
+        // Find the active variant after filtering
+        const activeVariant = nonEmptyVariantsWithIndices.find(v => v.originalIndex === this.activeVariantIndex);
+        
+        if (activeVariant) {
           this.close();
-          this.onSubmit(this.inputText);
-        })
-      );
+          // Pass the active variant text directly with commitVariant flag
+          this.onSubmit(activeVariant.text, undefined, true);
+        }
+      })
+      .buttonEl.addClass('variant-editor-button', 'variant-editor-commit-button');
+    
+    // Create variants button
+    new ButtonComponent(buttonsContainer)
+      .setButtonText('Create Variants')
+      .setCta()
+      .onClick(() => {
+        // Filter out empty variants and track their original indices
+        const nonEmptyVariantsWithIndices = this.variants
+          .map((v, i) => ({ text: v.trim(), originalIndex: i }))
+          .filter(v => v.text.length > 0);
+        
+        if (nonEmptyVariantsWithIndices.length > 0) {
+          // Find the new index of the active variant after filtering
+          let newActiveIndex = 0;
+          for (let i = 0; i < nonEmptyVariantsWithIndices.length; i++) {
+            if (nonEmptyVariantsWithIndices[i].originalIndex === this.activeVariantIndex) {
+              newActiveIndex = i;
+              break;
+            }
+          }
+          
+          this.close();
+          // Join variants with pipe character for the expected format and pass the corrected active index
+          const nonEmptyVariants = nonEmptyVariantsWithIndices.map(v => v.text);
+          this.onSubmit(nonEmptyVariants.join('|'), newActiveIndex);
+        }
+      })
+      .buttonEl.addClass('variant-editor-button');
   }
+  
+  private renderVariantInputs() {
+    // Clear existing inputs
+    this.variantContainer.empty();
+    
+    // Create an input for each variant
+    this.variants.forEach((variant, index) => {
+      const variantRow = this.variantContainer.createDiv({
+        cls: 'variant-editor-row'
+      });
+      
+      // Radio button for selecting active variant
+      const radioContainer = variantRow.createDiv({
+        cls: 'variant-editor-radio-container'
+      });
+      
+      const radioInput = radioContainer.createEl('input', {
+        cls: 'variant-editor-radio',
+        attr: {
+          type: 'radio',
+          name: 'active-variant',
+          id: `variant-${index}`,
+          checked: this.activeVariantIndex === index
+        }
+      });
+      
+      radioInput.addEventListener('change', () => {
+        if (radioInput.checked) {
+          this.activeVariantIndex = index;
+        }
+      });
+      
+      // Label for the variant
+      const variantLabel = variantRow.createDiv({
+        cls: 'variant-editor-label',
+        text: index === 0 ? 'Original:' : `Variant ${index}:`
+      });
+      
+      // Input for the variant
+      const variantInput = variantRow.createEl('input', {
+        cls: 'variant-editor-input',
+        attr: {
+          type: 'text',
+          value: variant,
+          placeholder: 'Enter variant text'
+        }
+      });
+      
+      // Update the variant when the input changes
+      variantInput.addEventListener('input', (e) => {
+        this.variants[index] = (e.target as HTMLInputElement).value;
+      });
+      
+      // Don't allow deleting the original variant
+      if (index > 0) {
+        // Delete button
+        const deleteButton = variantRow.createEl('button', {
+          cls: 'variant-editor-delete-button',
+          text: '×'
+        });
+        
+        deleteButton.addEventListener('click', () => {
+          // If deleting the active variant, select the previous one
+          if (this.activeVariantIndex === index) {
+            this.activeVariantIndex = Math.max(0, index - 1);
+          } 
+          // If deleting a variant before the active one, adjust the active index
+          else if (this.activeVariantIndex > index) {
+            this.activeVariantIndex--;
+          }
+          
+          this.variants.splice(index, 1);
+          this.renderVariantInputs();
+        });
+      }
+      
+      // Focus the first empty input
+      if (variant === '' && index === this.variants.length - 1) {
+        setTimeout(() => variantInput.focus(), 10);
+      }
+    });
+  }
+
 
   onClose() {
     const {contentEl} = this;
