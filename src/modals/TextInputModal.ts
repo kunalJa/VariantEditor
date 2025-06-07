@@ -31,6 +31,11 @@ export class TextInputModal extends Modal {
     // Add a class for styling
     modalEl.addClass('variant-editor-modal');
     
+    // Create a flex container for all content to support column-reverse when above
+    const flexContainer = contentEl.createDiv({
+      cls: 'variant-editor-flex-container'
+    });
+    
     // Position the modal relative to the cursor if we have cursor position
     if (this.cursorPosition) {
       // We need to position the modal after it's rendered
@@ -39,16 +44,16 @@ export class TextInputModal extends Modal {
       }, 0);
     }
     
-    contentEl.createEl('h2', {text: 'Create Variants'});
+    flexContainer.createEl('h2', {text: 'Create Variants'});
     
     // Show the original text
-    contentEl.createEl('div', {
+    flexContainer.createEl('div', {
       text: `Original text: "${this.originalText}"`,
       cls: 'variant-editor-original-text'
     });
     
     // Create container for variant inputs
-    this.variantContainer = contentEl.createDiv({
+    this.variantContainer = flexContainer.createDiv({
       cls: 'variant-editor-container'
     });
     
@@ -56,7 +61,7 @@ export class TextInputModal extends Modal {
     this.renderVariantInputs();
     
     // Add button to add new variant
-    const addVariantContainer = contentEl.createDiv({
+    const addVariantContainer = flexContainer.createDiv({
       cls: 'variant-editor-add-container'
     });
     
@@ -71,13 +76,13 @@ export class TextInputModal extends Modal {
     addVariantButton.buttonEl.addClass('variant-editor-add-button');
     
     // Add explanation
-    contentEl.createEl('div', {
+    flexContainer.createEl('div', {
       text: 'Select which variant should be active with the radio buttons',
       cls: 'variant-editor-hint'
     });
     
     // Add buttons container
-    const buttonsContainer = contentEl.createDiv({
+    const buttonsContainer = flexContainer.createDiv({
       cls: 'variant-editor-buttons'
     });
     
@@ -166,12 +171,14 @@ export class TextInputModal extends Modal {
     // Position the modal below the line with some padding
     const padding = 10;
     let top = lineRect.bottom + padding;
+    let positionAbove = false;
     
     // Make sure the modal doesn't go off the bottom of the screen
     const viewportHeight = window.innerHeight;
     if (top + modalRect.height > viewportHeight) {
       // Position above the line instead
-      top = lineRect.top - modalRect.height - padding;
+      top = lineRect.top - padding;
+      positionAbove = true;
     }
     
     // Center horizontally relative to the line
@@ -179,7 +186,19 @@ export class TextInputModal extends Modal {
     
     // Apply the position
     modalEl.style.position = 'fixed';
-    modalEl.style.top = `${Math.max(0, top)}px`;
+    
+    if (positionAbove) {
+      // When positioned above, align to bottom and make it grow upward
+      modalEl.style.top = 'auto';
+      modalEl.style.bottom = `${Math.max(0, viewportHeight - top)}px`;
+      modalEl.classList.add('variant-editor-modal-above');
+    } else {
+      // When positioned below, align to top and make it grow downward (default)
+      modalEl.style.top = `${Math.max(0, top)}px`;
+      modalEl.style.bottom = 'auto';
+      modalEl.classList.remove('variant-editor-modal-above');
+    }
+    
     modalEl.style.left = `${Math.max(0, left)}px`;
     modalEl.style.transform = 'none';
   }

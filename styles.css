@@ -179,6 +179,17 @@
   border: 1px solid var(--background-modifier-border) !important;
 }
 
+/* When modal is positioned above the highlighted line, make it grow upward */
+.variant-editor-modal-above .variant-editor-flex-container {
+  display: flex !important;
+  flex-direction: column-reverse !important;
+}
+
+.variant-editor-flex-container {
+  display: flex;
+  flex-direction: column;
+}
+
 .variant-editor-textarea:focus {
   outline: none;
   border-color: var(--interactive-accent);
