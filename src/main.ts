@@ -13,6 +13,8 @@ export default class VariantEditor extends Plugin {
   private dimExtension: Extension | null = null;
   // Track previous cursor line
   private previousCursorLine: number | null = null;
+  // Store the selected text for highlighting
+  private selectedText: string | null = null;
  
   async onload() {
     try {
@@ -120,6 +122,35 @@ export default class VariantEditor extends Plugin {
               } catch (e) {
                 console.error(`Error adding decoration to line ${i}:`, e);
               }
+            } else if (pluginInstance.selectedText) {
+              // This is the active line, add highlight for the selected text
+              try {
+                const line = view.state.doc.line(i);
+                const lineText = line.text;
+                const selectedText = pluginInstance.selectedText;
+                
+                // Find all occurrences of the selected text in this line
+                let searchIndex = 0;
+                let foundIndex;
+                
+                while ((foundIndex = lineText.indexOf(selectedText, searchIndex)) !== -1) {
+                  const start = line.from + foundIndex;
+                  const end = start + selectedText.length;
+                  
+                  // Add highlight decoration for the selected text
+                  builder.add(
+                    start,
+                    end,
+                    Decoration.mark({
+                      attributes: { class: "fh-highlight" }
+                    })
+                  );
+                  
+                  searchIndex = foundIndex + selectedText.length;
+                }
+              } catch (e) {
+                console.error(`Error adding highlight decoration:`, e);
+              }
             }
           }
           
@@ -145,6 +176,14 @@ export default class VariantEditor extends Plugin {
       }
 
       const editor = view.editor;
+      const selection = editor.listSelections()[0];
+      
+      // Check if selection spans multiple lines
+      if (selection.anchor.line !== selection.head.line) {
+        new Notice('Selection must be within a single line. Variants only work within single lines.');
+        return;
+      }
+      
       const selectedText = editor.getSelection();
       const selectedWord = selectedText.trim();
       
@@ -155,20 +194,26 @@ export default class VariantEditor extends Plugin {
       // Save cursor position for later text insertion
       const cursorPos = editor.getCursor();
       
+      // Store the selected text for highlighting
+      this.selectedText = selectedWord;
+      
       // Set active line for dimming
       this.activeLine = cursorPos.line + 1;
+      
+      // Clear the selection to prevent the selection overlay from washing out our highlight
+      editor.setCursor(cursorPos);
       
       // Force editor refresh to apply decorations
       this.app.workspace.updateOptions();
       
-      // Open the text input modal after highlighting
-      new TextInputModal(this.app, (inputText: string) => {
-        if (inputText && inputText.trim()) {
-          // Insert the text at the saved cursor position
-          editor.replaceRange(inputText, cursorPos);
-          new Notice(`Text inserted at cursor position`);
-        }
-      }).open();
+      // // Open the text input modal after highlighting
+      // new TextInputModal(this.app, (inputText: string) => {
+      //   if (inputText && inputText.trim()) {
+      //     // Insert the text at the saved cursor position
+      //     editor.replaceRange(inputText, cursorPos);
+      //     new Notice(`Text inserted at cursor position`);
+      //   }
+      // }).open();
 
     } catch (e) {
       console.error('Error in highlightSelection:', e);
@@ -177,9 +222,10 @@ export default class VariantEditor extends Plugin {
 
   private clearHighlight(): void {
     try {
-      // Reset active line and previous cursor line
+      // Reset active line, previous cursor line, and selected text
       this.activeLine = null;
       this.previousCursorLine = null;
+      this.selectedText = null;
       
       // Use the hack to force a complete re-render
       const view = this.app.workspace.getActiveViewOfType(MarkdownView);

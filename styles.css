@@ -29,7 +29,18 @@
   font-weight: 600;
   padding: 0 2px;
   border-radius: 3px;
+  z-index: 10;
+  position: relative;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+}
+
+/* Make highlighted text stand out even when selected */
+.cm-line .cm-selectionBackground ~ .fh-highlight,
+.cm-line .cm-selectionBackground + .fh-highlight,
+.cm-line .fh-highlight.cm-selectionBackground {
+  background-color: #ffcf40 !important; /* Stronger yellow that shows through selection */
+  mix-blend-mode: multiply;
+  opacity: 0.9;
 }
 
 /* Modal styles */
