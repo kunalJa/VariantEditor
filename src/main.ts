@@ -3,8 +3,33 @@ import { hackToRerender } from './utils/editorUtils';
 import { TextInputModal } from './modals/TextInputModal';
 
 // Import CodeMirror modules directly as per Obsidian documentation
-import { ViewUpdate, PluginValue, EditorView, ViewPlugin, Decoration, DecorationSet } from '@codemirror/view';
+import { ViewUpdate, PluginValue, EditorView, ViewPlugin, Decoration, DecorationSet, WidgetType } from '@codemirror/view';
 import { RangeSetBuilder, StateField, Extension } from '@codemirror/state';
+
+/**
+ * Widget that displays only the active variant text while preserving the original variant syntax in the document
+ */
+class ActiveVariantWidget extends WidgetType {
+  constructor(private activeVariantText: string, private fullVariantText: string) {
+    super();
+  }
+  
+  toDOM() {
+    const span = document.createElement('span');
+    span.className = 'variant-indicator';
+    span.textContent = this.activeVariantText;
+    
+    // Store the full variant text as a data attribute for debugging
+    span.setAttribute('data-full-variant', this.fullVariantText);
+    
+    return span;
+  }
+  
+  eq(other: ActiveVariantWidget): boolean {
+    return other.activeVariantText === this.activeVariantText && 
+           other.fullVariantText === this.fullVariantText;
+  }
+}
 
 export default class VariantEditor extends Plugin {
   // Track active line for dimming
@@ -52,6 +77,9 @@ export default class VariantEditor extends Plugin {
     this.clearHighlight();
   }
   
+  /**
+   * Widget that displays only the active variant text while preserving the original variant syntax in the document
+   */
   private createVariantIndicatorExtension(): Extension {
     return ViewPlugin.fromClass(
       class {
@@ -74,22 +102,28 @@ export default class VariantEditor extends Plugin {
           for (let {from, to} of view.visibleRanges) {
             const text = view.state.doc.sliceString(from, to);
             
-            // Find all variant syntax matches using regex
-            const variantRegex = /\{\{([^{}]+?)\}\}\^\d+/g;
+            // Find all variant syntax matches using regex with capture groups for variants and index
+            const variantRegex = /\{\{([^{}]+?)\}\}\^(\d+)/g;
             let match;
             
             while ((match = variantRegex.exec(text)) !== null) {
               const start = from + match.index;
               const end = start + match[0].length;
+              const fullMatch = match[0];
+              const variantsText = match[1];
+              const activeIndex = parseInt(match[2], 10);
               
-              // Add decoration for the entire variant syntax
-              builder.add(
-                start,
-                end,
-                Decoration.mark({
-                  class: "variant-indicator"
-                })
-              );
+              // Split the variants and get the active one
+              const variants = variantsText.split('|').map(v => v.trim());
+              const activeVariant = variants[activeIndex] || variants[0] || '';
+                            // Replace the entire variant syntax with just the active variant
+                builder.add(
+                  start,
+                  end,
+                  Decoration.replace({
+                    widget: new ActiveVariantWidget(activeVariant, fullMatch)
+                  })
+                );
             }
           }
           
