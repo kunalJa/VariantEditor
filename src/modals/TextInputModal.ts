@@ -16,12 +16,22 @@ export class TextInputModal extends Modal {
     app: App, 
     originalText: string,
     onSubmit: (result: string, activeIndex?: number, commitVariant?: boolean) => void,
-    cursorPosition: EditorPosition | null = null
+    cursorPosition: EditorPosition | null = null,
+    initialActiveIndex: number = 0
   ) {
     super(app);
     this.originalText = originalText;
     this.onSubmit = onSubmit;
-    this.variants = [originalText];
+    
+    // If the originalText contains pipe characters, it might be a variant list
+    if (originalText.includes('|')) {
+      this.variants = originalText.split('|').filter(v => v);
+      this.activeVariantIndex = initialActiveIndex;
+    } else {
+      this.variants = [originalText];
+      this.activeVariantIndex = 0;
+    }
+    
     this.cursorPosition = cursorPosition;
   }
 
@@ -44,11 +54,13 @@ export class TextInputModal extends Modal {
       }, 0);
     }
     
-    flexContainer.createEl('h2', {text: 'Create Variants'});
+    // Change title based on whether we're editing an existing variant or creating a new one
+  const isEditing = this.variants.length > 1;
+  flexContainer.createEl('h2', {text: isEditing ? 'Edit Variants' : 'Create Variants'});
     
-    // Show the original text
+    // Show the original text or selected variant
     flexContainer.createEl('div', {
-      text: `Original text: "${this.originalText}"`,
+      text: isEditing ? `Selected variant: "${this.variants[this.activeVariantIndex]}"` : `Original text: "${this.originalText}"`,
       cls: 'variant-editor-original-text'
     });
     
@@ -98,7 +110,7 @@ export class TextInputModal extends Modal {
       .onClick(() => {
         // Filter out empty variants and track their original indices
         const nonEmptyVariantsWithIndices = this.variants
-          .map((v, i) => ({ text: v.trim(), originalIndex: i }))
+          .map((v, i) => ({ text: v, originalIndex: i }))
           .filter(v => v.text.length > 0);
         
         // Find the active variant after filtering
@@ -112,14 +124,14 @@ export class TextInputModal extends Modal {
       })
       .buttonEl.addClass('variant-editor-button', 'variant-editor-commit-button');
     
-    // Create variants button
+    // Create/Update variants button
     new ButtonComponent(buttonsContainer)
-      .setButtonText('Create Variants')
+      .setButtonText(isEditing ? 'Update Variants' : 'Create Variants')
       .setCta()
       .onClick(() => {
         // Filter out empty variants and track their original indices
         const nonEmptyVariantsWithIndices = this.variants
-          .map((v, i) => ({ text: v.trim(), originalIndex: i }))
+          .map((v, i) => ({ text: v, originalIndex: i }))
           .filter(v => v.text.length > 0);
         
         if (nonEmptyVariantsWithIndices.length >= 2) {
@@ -252,7 +264,7 @@ export class TextInputModal extends Modal {
       
       // Update the variant when the input changes
       variantInput.addEventListener('input', (e) => {
-        this.variants[index] = (e.target as HTMLInputElement).value;
+        this.variants[index] = (e.target as HTMLInputElement).value.trim();
       });
       
       // Don't allow deleting the original variant

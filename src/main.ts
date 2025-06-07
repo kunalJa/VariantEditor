@@ -6,30 +6,7 @@ import { TextInputModal } from './modals/TextInputModal';
 import { ViewUpdate, PluginValue, EditorView, ViewPlugin, Decoration, DecorationSet, WidgetType } from '@codemirror/view';
 import { RangeSetBuilder, StateField, Extension } from '@codemirror/state';
 
-/**
- * Widget that displays only the active variant text while preserving the original variant syntax in the document
- */
-class ActiveVariantWidget extends WidgetType {
-  constructor(private activeVariantText: string, private fullVariantText: string) {
-    super();
-  }
-  
-  toDOM() {
-    const span = document.createElement('span');
-    span.className = 'variant-indicator';
-    span.textContent = this.activeVariantText;
-    
-    // Store the full variant text as a data attribute for debugging
-    span.setAttribute('data-full-variant', this.fullVariantText);
-    
-    return span;
-  }
-  
-  eq(other: ActiveVariantWidget): boolean {
-    return other.activeVariantText === this.activeVariantText && 
-           other.fullVariantText === this.fullVariantText;
-  }
-}
+// No longer need the ActiveVariantWidget class as we're using CSS-based approach
 
 export default class VariantEditor extends Plugin {
   // Track active line for dimming
@@ -78,7 +55,8 @@ export default class VariantEditor extends Plugin {
   }
   
   /**
-   * Widget that displays only the active variant text while preserving the original variant syntax in the document
+   * Creates an extension that styles variant syntax to show only the active variant
+   * while keeping the original text editable
    */
   private createVariantIndicatorExtension(): Extension {
     return ViewPlugin.fromClass(
@@ -98,32 +76,69 @@ export default class VariantEditor extends Plugin {
         buildDecorations(view: EditorView): DecorationSet {
           const builder = new RangeSetBuilder<Decoration>();
           
-          // Process all visible ranges
           for (let {from, to} of view.visibleRanges) {
             const text = view.state.doc.sliceString(from, to);
-            
-            // Find all variant syntax matches using regex with capture groups for variants and index
             const variantRegex = /\{\{([^{}]+?)\}\}\^(\d+)/g;
             let match;
             
             while ((match = variantRegex.exec(text)) !== null) {
-              const start = from + match.index;
-              const end = start + match[0].length;
+              const matchStart = from + match.index;
+              const matchEnd = matchStart + match[0].length;
               const fullMatch = match[0];
               const variantsText = match[1];
               const activeIndex = parseInt(match[2], 10);
               
-              // Split the variants and get the active one
-              const variants = variantsText.split('|').map(v => v.trim());
-              const activeVariant = variants[activeIndex] || variants[0] || '';
-                            // Replace the entire variant syntax with just the active variant
-                builder.add(
-                  start,
-                  end,
-                  Decoration.replace({
-                    widget: new ActiveVariantWidget(activeVariant, fullMatch)
-                  })
-                );
+              // Find the position of the active variant
+              let pos = 0;
+              if (activeIndex === 0) {
+                pos += 2; // Skip past the opening {{
+              } 
+              for (let i = 0; i < activeIndex; i++) {
+                pos = fullMatch.indexOf('|', pos) + 1;
+              }
+              
+              const activeVariantStart = matchStart + pos;
+              const activeVariantEnd = activeVariantStart + variantsText.split('|')[activeIndex].length;
+              
+              // Add three decorations for each variant:
+              // 1. Hide everything before the active variant
+              builder.add(
+                matchStart,
+                activeVariantStart,
+                Decoration.mark({
+                  attributes: {
+                    class: 'variant-syntax-start',
+                    'data-full-variant': fullMatch,
+                    'data-variant-index': activeIndex.toString()
+                  }
+                })
+              );
+              
+              // 2. Show the active variant
+              builder.add(
+                activeVariantStart,
+                activeVariantEnd,
+                Decoration.mark({
+                  attributes: {
+                    class: 'variant-active-option',
+                    'data-full-variant': fullMatch,
+                    'data-variant-index': activeIndex.toString()
+                  }
+                })
+              );
+              
+              // 3. Hide everything after the active variant
+              builder.add(
+                activeVariantEnd,
+                matchEnd,
+                Decoration.mark({
+                  attributes: {
+                    class: 'variant-syntax-end',
+                    'data-full-variant': fullMatch,
+                    'data-variant-index': activeIndex.toString()
+                  }
+                })
+              );
             }
           }
           
@@ -197,7 +212,8 @@ export default class VariantEditor extends Plugin {
           const builder = new RangeSetBuilder<Decoration>();
           const activeLine = pluginInstance.activeLine;
           
-          // Add decorations to all lines except the active one
+          // First pass: Add decorations to all lines except the active one
+          // This ensures line decorations are added in order
           for (let i = 1; i <= view.state.doc.lines; i++) {
             if (i !== activeLine) {
               try {
@@ -209,35 +225,43 @@ export default class VariantEditor extends Plugin {
               } catch (e) {
                 console.error(`Error adding decoration to line ${i}:`, e);
               }
-            } else if (pluginInstance.selectedText) {
-              // This is the active line, add highlight for the selected text
-              try {
-                const line = view.state.doc.line(i);
-                const lineText = line.text;
-                const selectedText = pluginInstance.selectedText;
-                
-                // Find all occurrences of the selected text in this line
-                let searchIndex = 0;
-                let foundIndex;
-                
-                while ((foundIndex = lineText.indexOf(selectedText, searchIndex)) !== -1) {
-                  const start = line.from + foundIndex;
-                  const end = start + selectedText.length;
-                  
-                  // Add highlight decoration for the selected text
-                  builder.add(
-                    start,
-                    end,
-                    Decoration.mark({
-                      attributes: { class: "fh-highlight" }
-                    })
-                  );
-                  
-                  searchIndex = foundIndex + selectedText.length;
-                }
-              } catch (e) {
-                console.error(`Error adding highlight decoration:`, e);
+            }
+          }
+          
+          // Second pass: Add highlight decorations for the active line if needed
+          if (pluginInstance.selectedText && activeLine <= view.state.doc.lines) {
+            try {
+              const line = view.state.doc.line(activeLine);
+              const lineText = line.text;
+              const selectedText = pluginInstance.selectedText;
+              
+              // Collect all occurrences first and sort them
+              const highlights = [];
+              let searchIndex = 0;
+              let foundIndex;
+              
+              while ((foundIndex = lineText.indexOf(selectedText, searchIndex)) !== -1) {
+                const start = line.from + foundIndex;
+                const end = start + selectedText.length;
+                highlights.push({ start, end });
+                searchIndex = foundIndex + selectedText.length;
               }
+              
+              // Sort highlights by start position
+              highlights.sort((a, b) => a.start - b.start);
+              
+              // Add them in sorted order
+              for (const { start, end } of highlights) {
+                builder.add(
+                  start,
+                  end,
+                  Decoration.mark({
+                    attributes: { class: "fh-highlight" }
+                  })
+                );
+              }
+            } catch (e) {
+              console.error(`Error adding highlight decoration:`, e);
             }
           }
           
@@ -258,81 +282,108 @@ export default class VariantEditor extends Plugin {
   private highlightSelection(): void {
     try {
       const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-      if (!view) {
-        return;
-      }
+      if (!view) return;
 
       const editor = view.editor;
       const selection = editor.listSelections()[0];
       
-      // Check if selection spans multiple lines
+      // Variants only work within single lines
       if (selection.anchor.line !== selection.head.line) {
-        new Notice('Selection must be within a single line. Variants only work within single lines.');
+        new Notice('Selection must be within a single line');
         return;
       }
       
-      const selectedText = editor.getSelection();
-      const selectedWord = selectedText.trim();
-      
-      if (!selectedWord) {
-        return;
-      }
-      
-      // Get selection range for replacement
+      // Get the selected text and range
       const from = {
-        line: selection.anchor.line,
+        line: Math.min(selection.anchor.line, selection.head.line),
         ch: Math.min(selection.anchor.ch, selection.head.ch)
       };
       
       const to = {
-        line: selection.anchor.line,
+        line: Math.max(selection.anchor.line, selection.head.line),
         ch: Math.max(selection.anchor.ch, selection.head.ch)
       };
       
-      // Store the selected text for highlighting
-      this.selectedText = selectedWord;
+      const selectedText = editor.getRange(from, to);
+      if (!selectedText) return;
       
-      // Set active line for dimming
-      this.activeLine = from.line + 1;
+      this.selectedText = selectedText;
       
-      // Clear the selection to prevent the selection overlay from washing out our highlight
-      editor.setCursor(from);
+      // Setup for variant editing
+      let initialText = selectedText;
+      let initialActiveIndex = 0;
+      let isExistingVariant = false;
       
-      // Force editor refresh to apply decorations
-      this.app.workspace.updateOptions();
+      // Check if the selection is already a variant
+      const variantRegex = /^\{\{([^{}]+?)\}\}\^(\d+)$/;
+      const variantMatch = selectedText.match(variantRegex);
       
-      // Open the text input modal after highlighting with the original text
+      if (variantMatch) {
+        // Direct selection of a variant
+        initialText = variantMatch[1];
+        initialActiveIndex = parseInt(variantMatch[2], 10);
+        isExistingVariant = true;
+      } else {
+        // Check if we're clicking inside a variant
+        const line = editor.getLine(from.line);
+        if (line) {
+          const fullLineRegex = /\{\{([^{}]+?)\}\}\^(\d+)/g;
+          let match;
+          
+          while ((match = fullLineRegex.exec(line)) !== null) {
+            const matchStart = match.index;
+            const matchEnd = matchStart + match[0].length;
+            
+            if (from.ch >= matchStart && to.ch <= matchEnd) {
+              // Selection is inside a variant
+              initialText = match[1];
+              initialActiveIndex = parseInt(match[2], 10);
+              isExistingVariant = true;
+              
+              // Expand selection to cover the entire variant
+              from.ch = matchStart;
+              to.ch = matchEnd;
+              editor.setSelection(from, to);
+              break;
+            }
+          }
+        }
+      }
+      
+      if (isExistingVariant) {
+        new Notice('Editing existing variant');
+      }
+      
+      // Open the variant editor modal
       new TextInputModal(
-        this.app, 
-        selectedWord, 
-        (variantText: string, activeIndex?: number, commitVariant?: boolean) => {
-          if (variantText && variantText.trim()) {
-            if (commitVariant) {
-              // If committing, just replace with the selected variant text directly
+        this.app,
+        initialText,
+        (variantText, activeIndex, commitVariant) => {
+          if (commitVariant) {
+            // Replace the variant with just the active variant text
+            if (variantText) {
               editor.replaceRange(variantText, from, to);
               new Notice(`Committed variant: "${variantText}"`);
-            } else {
-              // Create the variant syntax: {{original | variant1 | variant2}}^n
-              const variants = variantText.split('|').map(v => v.trim()).filter(v => v);
-              
-              // Ensure we have at least one variant (the original text)
-              if (variants.length > 0) {
-                // Use the provided activeIndex or default to 0
-                const activeIdx = typeof activeIndex === 'number' ? activeIndex : 0;
-                const variantSyntax = `{{${variants.join(' | ')}}}^${activeIdx}`;
-                
-                // Replace the selected text with the variant syntax
-                editor.replaceRange(variantSyntax, from, to);
-                new Notice(`Created variant with ${variants.length} options (${variants[activeIdx]} active)`);
-              }
             }
+          } else {
+            // Create or update the variant syntax
+            const variants = variantText.split('|').filter(v => v);
             
-            // Clear highlighting after creating variant
-            this.clearHighlight();
+            if (variants.length > 0) {
+              const activeIdx = typeof activeIndex === 'number' ? activeIndex : 0;
+              const variantSyntax = `{{${variants.join('|')}}^${activeIdx}`;
+              
+              editor.replaceRange(variantSyntax, from, to);
+              
+              const action = isExistingVariant ? 'Updated' : 'Created';
+              new Notice(`${action} variant with ${variants.length} options (${variants[activeIdx]} active)`);
+            }
           }
+          
+          this.clearHighlight();
         },
-        // Pass the cursor position to position the modal relative to the highlighted text
-        from
+        from,
+        initialActiveIndex
       ).open();
 
     } catch (e) {
@@ -342,16 +393,14 @@ export default class VariantEditor extends Plugin {
 
   private clearHighlight(): void {
     try {
-      // Reset active line, previous cursor line, and selected text
+      // Reset state
       this.activeLine = null;
       this.previousCursorLine = null;
       this.selectedText = null;
       
-      // Use the hack to force a complete re-render
+      // Force editor refresh
       const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-      if (view) {
-        hackToRerender(view);
-      }
+      if (view) hackToRerender(view);
     } catch (e) {
       console.error('Error in clearHighlight:', e);
     }

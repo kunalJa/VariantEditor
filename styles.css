@@ -49,6 +49,36 @@
   border-bottom: 1px dashed #79b8ff;
   border-radius: 2px;
   position: relative;
+}
+
+/* Hide variant syntax parts */
+.variant-syntax-start,
+.variant-syntax-end,
+.variant-inactive-option {
+  display: inline;
+  color: transparent;
+  font-size: 0;
+  position: relative;
+  pointer-events: auto;
+  cursor: text;
+}
+
+/* Show a small indicator for hidden parts when hovered */
+.variant-syntax-start:hover,
+.variant-syntax-end:hover,
+.variant-inactive-option:hover {
+  background-color: rgba(121, 184, 255, 0.3);
+}
+
+/* Active variant option */
+.variant-active-option {
+  display: inline;
+  background-color: rgba(121, 184, 255, 0.2);
+  border-bottom: 1px dashed #79b8ff;
+  border-radius: 2px;
+  position: relative;
+  pointer-events: auto;
+  cursor: text;
   z-index: 5;
 }
 
