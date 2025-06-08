@@ -354,6 +354,15 @@ export default class VariantEditor extends Plugin {
         new Notice('Editing existing variant');
       }
       
+      // Set active line for dimming
+      this.activeLine = from.line + 1;
+      
+      // Store the selected text for highlighting
+      this.selectedText = selectedText;
+      
+      // Force editor refresh to apply decorations
+      this.app.workspace.updateOptions();
+      
       // Open the variant editor modal
       new TextInputModal(
         this.app,
