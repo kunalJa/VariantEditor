@@ -45,8 +45,9 @@ export class TextInputModal extends Modal {
   onOpen() {
     const {contentEl, modalEl} = this;
     
-    // Add a class for styling
+    // Add classes for styling
     modalEl.addClass('variant-editor-modal');
+    modalEl.addClass('variant-editor-no-dim'); // Class to remove background dimming
     
     // Create a flex container for all content to support column-reverse when above
     const flexContainer = contentEl.createDiv({

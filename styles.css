@@ -220,6 +220,12 @@
   flex-direction: column;
 }
 
+/* Remove background dimming for variant editor modal */
+.variant-editor-no-dim ~ .modal-bg {
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+}
+
 .variant-editor-textarea:focus {
   outline: none;
   border-color: var(--interactive-accent);

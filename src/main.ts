@@ -17,6 +17,9 @@ export default class VariantEditor extends Plugin {
   private previousCursorLine: number | null = null;
   // Store the selected text for highlighting
   private selectedText: string | null = null;
+  // Store the selection range
+  private selectionFrom: number | null = null;
+  private selectionTo: number | null = null;
  
   async onload() {
     try {
@@ -204,70 +207,68 @@ export default class VariantEditor extends Plugin {
         }
         
         buildDecorations(view: EditorView): DecorationSet {
-          // If no active line is set, return empty decorations
-          if (pluginInstance.activeLine === null) {
-            return Decoration.none;
-          }
-          
-          const builder = new RangeSetBuilder<Decoration>();
-          const activeLine = pluginInstance.activeLine;
-          
-          // First pass: Add decorations to all lines except the active one
-          // This ensures line decorations are added in order
-          for (let i = 1; i <= view.state.doc.lines; i++) {
-            if (i !== activeLine) {
-              try {
-                const line = view.state.doc.line(i);
-                const decoration = Decoration.line({
-                  attributes: { class: "fh-dim" }
-                });
-                builder.add(line.from, line.from, decoration);
-              } catch (e) {
-                console.error(`Error adding decoration to line ${i}:`, e);
-              }
-            }
-          }
-          
-          // Second pass: Add highlight decorations for the active line if needed
-          if (pluginInstance.selectedText && activeLine <= view.state.doc.lines) {
-            try {
-              const line = view.state.doc.line(activeLine);
-              const lineText = line.text;
-              const selectedText = pluginInstance.selectedText;
-              
-              // Collect all occurrences first and sort them
-              const highlights = [];
-              let searchIndex = 0;
-              let foundIndex;
-              
-              while ((foundIndex = lineText.indexOf(selectedText, searchIndex)) !== -1) {
-                const start = line.from + foundIndex;
-                const end = start + selectedText.length;
-                highlights.push({ start, end });
-                searchIndex = foundIndex + selectedText.length;
-              }
-              
-              // Sort highlights by start position
-              highlights.sort((a, b) => a.start - b.start);
-              
-              // Add them in sorted order
-              for (const { start, end } of highlights) {
-                builder.add(
-                  start,
-                  end,
-                  Decoration.mark({
-                    attributes: { class: "fh-highlight" }
-                  })
-                );
-              }
-            } catch (e) {
-              console.error(`Error adding highlight decoration:`, e);
-            }
-          }
-          
-          return builder.finish();
+    // If no active line is set, return empty decorations
+    if (pluginInstance.activeLine === null) {
+      return Decoration.none;
+    }
+    
+    // Collect all decorations first, then sort and add them
+    const allDecorations = [];
+    const activeLine = pluginInstance.activeLine;
+    
+    // First pass: Collect line decorations for all lines except the active one
+    for (let i = 1; i <= view.state.doc.lines; i++) {
+      if (i !== activeLine) {
+        try {
+          const line = view.state.doc.line(i);
+          const decoration = Decoration.line({
+            attributes: { class: "fh-dim" }
+          });
+          allDecorations.push({
+            from: line.from,
+            to: line.from,
+            decoration: decoration
+          });
+        } catch (e) {
+          console.error(`Error creating decoration for line ${i}:`, e);
         }
+      }
+    }
+    
+    // Second pass: Collect highlight decoration only for the currently selected text
+    if (pluginInstance.selectedText && activeLine <= view.state.doc.lines && pluginInstance.selectionFrom !== null && pluginInstance.selectionTo !== null) {
+      try {
+        // Use the exact selection positions instead of searching for all instances
+        const start = pluginInstance.selectionFrom;
+        const end = pluginInstance.selectionTo;
         
+        allDecorations.push({
+          from: start,
+          to: end,
+          decoration: Decoration.mark({
+            attributes: { class: "fh-highlight" }
+          })
+        });
+      } catch (e) {
+        console.error(`Error creating highlight decoration:`, e);
+      }
+    }
+    
+    // Sort all decorations by from position
+    allDecorations.sort((a, b) => a.from - b.from);
+    
+    // Now add them to the builder in sorted order
+    const builder = new RangeSetBuilder<Decoration>();
+    for (const { from, to, decoration } of allDecorations) {
+      try {
+        builder.add(from, to, decoration);
+      } catch (e) {
+        console.error(`Error adding decoration at position ${from}:`, e);
+      }
+    }
+    
+    return builder.finish();
+  }        
         destroy() {}
       },
       {
@@ -360,6 +361,26 @@ export default class VariantEditor extends Plugin {
       // Store the selected text for highlighting
       this.selectedText = selectedText;
       
+      // Convert EditorPosition to absolute character positions for highlighting
+      const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+      if (activeView) {
+        // Get the editor view
+        const editorView = (activeView.editor as any).cm;
+        if (editorView) {
+          try {
+            // Convert line/ch positions to absolute character positions
+            const fromPos = editorView.state.doc.line(from.line + 1).from + from.ch;
+            const toPos = editorView.state.doc.line(to.line + 1).from + to.ch;
+            
+            // Store the exact selection range for highlighting
+            this.selectionFrom = fromPos;
+            this.selectionTo = toPos;
+          } catch (e) {
+            console.error('Error converting positions:', e);
+          }
+        }
+      }
+      
       // Force editor refresh to apply decorations
       this.app.workspace.updateOptions();
       
@@ -377,6 +398,8 @@ export default class VariantEditor extends Plugin {
             if (variantText) {
               editor.replaceRange(variantText, updateFrom, updateTo);
               new Notice(`Committed variant: "${variantText}"`);
+              // Only clear highlights when committing
+              this.clearHighlight();
             }
           } else {
             // Create or update the variant syntax
@@ -397,11 +420,12 @@ export default class VariantEditor extends Plugin {
               // Only show notice on explicit user action, not on every update
               if (commitVariant) {
                 new Notice(`${action} variant with ${variants.length} options (${variants[activeIdx]} active)`);
+                // Only clear highlights when committing
+                this.clearHighlight();
               }
+              // Don't clear highlights during live updates
             }
           }
-          
-          this.clearHighlight();
         },
         from,
         initialActiveIndex
@@ -418,6 +442,8 @@ export default class VariantEditor extends Plugin {
       this.activeLine = null;
       this.previousCursorLine = null;
       this.selectedText = null;
+      this.selectionFrom = null;
+      this.selectionTo = null;
       
       // Force editor refresh
       const view = this.app.workspace.getActiveViewOfType(MarkdownView);
