@@ -7,17 +7,22 @@ import { App, Modal, Setting, ButtonComponent, EditorPosition } from 'obsidian';
 export class TextInputModal extends Modal {
   private variants: string[] = [];
   private activeVariantIndex: number = 0;
-  private onSubmit: (result: string, activeIndex?: number, commitVariant?: boolean) => void;
+  private onSubmit: (result: string, activeIndex?: number, commitVariant?: boolean, currentFrom?: EditorPosition | null, currentTo?: EditorPosition | null) => void;
   private originalText: string;
   private variantContainer: HTMLElement;
   private cursorPosition: EditorPosition | null;
+  // Track the current variant position in the editor
+  private currentFrom: EditorPosition | null;
+  private currentTo: EditorPosition | null;
 
   constructor(
     app: App, 
     originalText: string,
-    onSubmit: (result: string, activeIndex?: number, commitVariant?: boolean) => void,
+    onSubmit: (result: string, activeIndex?: number, commitVariant?: boolean, currentFrom?: EditorPosition | null, currentTo?: EditorPosition | null) => void,
     cursorPosition: EditorPosition | null = null,
-    initialActiveIndex: number = 0
+    initialActiveIndex: number = 0,
+    currentFrom: EditorPosition | null = null,
+    currentTo: EditorPosition | null = null
   ) {
     super(app);
     this.originalText = originalText;
@@ -33,6 +38,8 @@ export class TextInputModal extends Modal {
     }
     
     this.cursorPosition = cursorPosition;
+    this.currentFrom = currentFrom || cursorPosition;
+    this.currentTo = currentTo;
   }
 
   onOpen() {
@@ -80,9 +87,27 @@ export class TextInputModal extends Modal {
     const addVariantButton = new ButtonComponent(addVariantContainer)
       .setButtonText('+ Add Variant')
       .onClick(() => {
+        // Store the current active variant index before adding a new one
+        const previousActiveIndex = this.activeVariantIndex;
+        
+        // Add the new variant and set it as active in the UI
         this.variants.push('');
         this.activeVariantIndex = this.variants.length - 1;
         this.renderVariantInputs();
+        
+        // Focus will be on the new input, but we'll update the editor after a short delay
+        // to allow the user to type something in the new variant
+        setTimeout(() => {
+          // Only update if we have at least two non-empty variants
+          const nonEmptyVariants = this.variants.filter(v => v.trim().length > 0);
+          if (nonEmptyVariants.length >= 2) {
+            // If the new variant is still empty, restore the previous active index
+            if (this.variants[this.activeVariantIndex].trim().length === 0) {
+              this.activeVariantIndex = previousActiveIndex;
+            }
+            this.updateVariantsInEditor();
+          }
+        }, 100);
       });
     
     addVariantButton.buttonEl.addClass('variant-editor-add-button');
@@ -129,26 +154,8 @@ export class TextInputModal extends Modal {
       .setButtonText(isEditing ? 'Update Variants' : 'Create Variants')
       .setCta()
       .onClick(() => {
-        // Filter out empty variants and track their original indices
-        const nonEmptyVariantsWithIndices = this.variants
-          .map((v, i) => ({ text: v, originalIndex: i }))
-          .filter(v => v.text.length > 0);
-        
-        if (nonEmptyVariantsWithIndices.length >= 2) {
-            // Find the new index of the active variant after filtering
-            let newActiveIndex = 0;
-            for (let i = 0; i < nonEmptyVariantsWithIndices.length; i++) {
-              if (nonEmptyVariantsWithIndices[i].originalIndex === this.activeVariantIndex) {
-                newActiveIndex = i;
-                break;
-              }
-            }
-            
-            // Join variants with pipe character for the expected format and pass the corrected active index
-            const nonEmptyVariants = nonEmptyVariantsWithIndices.map(v => v.text);
-            this.onSubmit(nonEmptyVariants.join('|'), newActiveIndex);
-          }
-          this.close();
+        this.updateVariantsInEditor();
+        this.close();
       })
       .buttonEl.addClass('variant-editor-button');
   }
@@ -215,6 +222,60 @@ export class TextInputModal extends Modal {
     modalEl.style.transform = 'none';
   }
 
+  /**
+   * Updates the variants in the editor without closing the modal
+   * Returns the new cursor positions for tracking
+   */
+  private updateVariantsInEditor() {
+    // Filter out empty variants and track their original indices
+    const nonEmptyVariantsWithIndices = this.variants
+      .map((v, i) => ({ text: v, originalIndex: i }))
+      .filter(v => v.text.length > 0);
+    
+    if (nonEmptyVariantsWithIndices.length >= 2) {
+      // Find the new index of the active variant after filtering
+      let newActiveIndex = 0;
+      let activeVariantFound = false;
+      
+      // Try to find the current active variant in the filtered list
+      for (let i = 0; i < nonEmptyVariantsWithIndices.length; i++) {
+        if (nonEmptyVariantsWithIndices[i].originalIndex === this.activeVariantIndex) {
+          newActiveIndex = i;
+          activeVariantFound = true;
+          break;
+        }
+      }
+      
+      // If we're adding a new variant and it's empty, use the last non-empty variant
+      if (!activeVariantFound && this.activeVariantIndex === this.variants.length - 1) {
+        // If we were on the last (new) variant, use the last non-empty variant
+        newActiveIndex = nonEmptyVariantsWithIndices.length - 1;
+      }
+      
+      // Join variants with pipe character for the expected format and pass the corrected active index
+      const nonEmptyVariants = nonEmptyVariantsWithIndices.map(v => v.text);
+      const variantText = nonEmptyVariants.join('|');
+      
+      // Call onSubmit with the new variant text and active index
+      // The third parameter (false) indicates this is not a commit operation
+      // We're also passing the current cursor positions for tracking
+      this.onSubmit(variantText, newActiveIndex, false, this.currentFrom, this.currentTo);
+      
+      // Calculate the new cursor positions based on the variant text length
+      if (this.currentFrom) {
+        // If we have a currentTo position, update it based on the new variant text length
+        if (this.currentTo) {
+          const variantSyntax = `{{${variantText}}}^${newActiveIndex}`;
+          const newTo = {
+            line: this.currentFrom.line,
+            ch: this.currentFrom.ch + variantSyntax.length
+          };
+          this.currentTo = newTo;
+        }
+      }
+    }
+  }
+
   private renderVariantInputs() {
     // Clear existing inputs
     this.variantContainer.empty();
@@ -243,6 +304,8 @@ export class TextInputModal extends Modal {
       radioInput.addEventListener('change', () => {
         if (radioInput.checked) {
           this.activeVariantIndex = index;
+          // Update the editor immediately when a radio button is clicked
+          this.updateVariantsInEditor();
         }
       });
       
@@ -265,6 +328,26 @@ export class TextInputModal extends Modal {
       // Update the variant when the input changes
       variantInput.addEventListener('input', (e) => {
         this.variants[index] = (e.target as HTMLInputElement).value.trim();
+        
+        // Debounce the update to avoid too many updates while typing
+        if (variantInput.dataset.updateTimeout) {
+          clearTimeout(parseInt(variantInput.dataset.updateTimeout));
+        }
+        
+        const timeoutId = setTimeout(() => {
+          // Only update if we have at least two non-empty variants
+          const nonEmptyVariants = this.variants.filter(v => v.trim().length > 0);
+          if (nonEmptyVariants.length >= 2) {
+            // Make sure the active variant index is set to the current input's index
+            // This ensures the variant we're editing is the one that gets shown
+            if (this.variants[index].trim().length > 0) {
+              this.activeVariantIndex = index;
+            }
+            this.updateVariantsInEditor();
+          }
+        }, 500); // 500ms debounce
+        
+        variantInput.dataset.updateTimeout = timeoutId.toString();
       });
       
       // Don't allow deleting the original variant

@@ -367,11 +367,15 @@ export default class VariantEditor extends Plugin {
       new TextInputModal(
         this.app,
         initialText,
-        (variantText, activeIndex, commitVariant) => {
+        (variantText, activeIndex, commitVariant, currentFrom, currentTo) => {
+          // Use the updated cursor positions if provided, otherwise use the original positions
+          const updateFrom = currentFrom || from;
+          const updateTo = currentTo || to;
+          
           if (commitVariant) {
             // Replace the variant with just the active variant text
             if (variantText) {
-              editor.replaceRange(variantText, from, to);
+              editor.replaceRange(variantText, updateFrom, updateTo);
               new Notice(`Committed variant: "${variantText}"`);
             }
           } else {
@@ -380,12 +384,20 @@ export default class VariantEditor extends Plugin {
             
             if (variants.length > 0) {
               const activeIdx = typeof activeIndex === 'number' ? activeIndex : 0;
-                const variantSyntax = `{{${variants.join('|')}}}^${activeIdx}`;
+              const variantSyntax = `{{${variants.join('|')}}}^${activeIdx}`;
               
-              editor.replaceRange(variantSyntax, from, to);
+              // Use the updated cursor positions for the replacement
+              editor.replaceRange(variantSyntax, updateFrom, updateTo);
+              
+              // Update the original positions for future updates
+              from.ch = updateFrom.ch;
+              to.ch = updateFrom.ch + variantSyntax.length;
               
               const action = isExistingVariant ? 'Updated' : 'Created';
-              new Notice(`${action} variant with ${variants.length} options (${variants[activeIdx]} active)`);
+              // Only show notice on explicit user action, not on every update
+              if (commitVariant) {
+                new Notice(`${action} variant with ${variants.length} options (${variants[activeIdx]} active)`);
+              }
             }
           }
           
