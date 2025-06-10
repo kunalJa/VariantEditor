@@ -7,6 +7,7 @@ import { App, Modal, Setting, ButtonComponent, EditorPosition } from 'obsidian';
 export class TextInputModal extends Modal {
   private variants: string[] = [];
   private activeVariantIndex: number = 0;
+  private lastNonEmptyVariantIndex: number = 0; // Track the last non-empty variant index
   private onSubmit: (result: string, activeIndex?: number, commitVariant?: boolean, currentFrom?: EditorPosition | null, currentTo?: EditorPosition | null) => void;
   private originalText: string;
   private variantContainer: HTMLElement;
@@ -32,9 +33,11 @@ export class TextInputModal extends Modal {
     if (originalText.includes('|')) {
       this.variants = originalText.split('|').filter(v => v);
       this.activeVariantIndex = initialActiveIndex;
+      this.lastNonEmptyVariantIndex = initialActiveIndex; // Initialize with the active index
     } else {
       this.variants = [originalText];
       this.activeVariantIndex = 0;
+      this.lastNonEmptyVariantIndex = 0;
     }
     
     this.cursorPosition = cursorPosition;
@@ -231,16 +234,31 @@ export class TextInputModal extends Modal {
       let newActiveIndex = 0;
       let activeVariantFound = false;
       
-      // Try to find the current active variant in the filtered list
-      for (let i = 0; i < nonEmptyVariantsWithIndices.length; i++) {
-        if (nonEmptyVariantsWithIndices[i].originalIndex === this.activeVariantIndex) {
-          newActiveIndex = i;
-          activeVariantFound = true;
-          break;
+      // Check if the current active variant is empty
+      const isActiveVariantEmpty = this.variants[this.activeVariantIndex].trim().length === 0;
+      
+      if (isActiveVariantEmpty && this.activeVariantIndex !== 0) {
+        // If active variant is empty (and not the original), use the last non-empty variant
+        // Try to find the last non-empty variant in the filtered list
+        for (let i = 0; i < nonEmptyVariantsWithIndices.length; i++) {
+          if (nonEmptyVariantsWithIndices[i].originalIndex === this.lastNonEmptyVariantIndex) {
+            newActiveIndex = i;
+            activeVariantFound = true;
+            break;
+          }
+        }
+      } else {
+        // Try to find the current active variant in the filtered list
+        for (let i = 0; i < nonEmptyVariantsWithIndices.length; i++) {
+          if (nonEmptyVariantsWithIndices[i].originalIndex === this.activeVariantIndex) {
+            newActiveIndex = i;
+            activeVariantFound = true;
+            break;
+          }
         }
       }
       
-      // If we're adding a new variant and it's empty, use the last non-empty variant
+      // If we still haven't found an active variant (e.g., if lastNonEmptyVariantIndex is also empty now)
       if (!activeVariantFound && this.activeVariantIndex === this.variants.length - 1) {
         // If we were on the last (new) variant, use the last non-empty variant
         newActiveIndex = nonEmptyVariantsWithIndices.length - 1;
@@ -291,11 +309,19 @@ export class TextInputModal extends Modal {
           // Set this as the active variant
           this.activeVariantIndex = index;
           
+          // If this variant has content, update the last non-empty variant index
+          if (variant.trim().length > 0 || index === 0) {
+            this.lastNonEmptyVariantIndex = index;
+          }
+          
           // Update all rows to reflect the new active state
           this.renderVariantInputs();
           
-          // Update the editor immediately when a variant is selected
-          this.updateVariantsInEditor();
+          // Only update the editor if the selected variant has content
+          if (variant.trim().length > 0 || index === 0) {
+            // Update the editor immediately when a non-empty variant is selected
+            this.updateVariantsInEditor();
+          }
         }
       });
       
@@ -338,6 +364,8 @@ export class TextInputModal extends Modal {
             // This ensures the variant we're editing is the one that gets shown
             if (this.variants[index].trim().length > 0) {
               this.activeVariantIndex = index;
+              // Update the last non-empty variant index when a variant gets content
+              this.lastNonEmptyVariantIndex = index;
             }
             this.updateVariantsInEditor();
           }
