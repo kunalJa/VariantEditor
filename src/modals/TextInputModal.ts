@@ -62,11 +62,16 @@ export class TextInputModal extends Modal {
       }, 0);
     }
     
-    // Change title based on whether we're editing an existing variant or creating a new one
-  const isEditing = this.variants.length > 1;
-  flexContainer.createEl('h2', {text: isEditing ? 'Edit Variants' : 'Create Variants'});
+    // Create header container with title and close button inline
+    const headerContainer = flexContainer.createDiv({
+      cls: 'variant-editor-header'
+    });
+    
+    // Add the title - always use "Manage Variants"
+    headerContainer.createEl('h2', {text: 'Manage Variants'});
     
     // Show the original text or selected variant
+    const isEditing = this.variants.length > 1;
     flexContainer.createEl('div', {
       text: isEditing ? `Selected variant: "${this.variants[this.activeVariantIndex]}"` : `Original text: "${this.originalText}"`,
       cls: 'variant-editor-original-text'
@@ -113,22 +118,10 @@ export class TextInputModal extends Modal {
     
     addVariantButton.buttonEl.addClass('variant-editor-add-button');
     
-    // Add explanation
-    flexContainer.createEl('div', {
-      text: 'Select which variant should be active with the radio buttons',
-      cls: 'variant-editor-hint'
-    });
-    
     // Add buttons container
     const buttonsContainer = flexContainer.createDiv({
       cls: 'variant-editor-buttons'
     });
-    
-    // Cancel button
-    new ButtonComponent(buttonsContainer)
-      .setButtonText('Cancel')
-      .onClick(() => this.close())
-      .buttonEl.addClass('variant-editor-button');
     
     // Commit active variant button
     new ButtonComponent(buttonsContainer)
@@ -283,32 +276,34 @@ export class TextInputModal extends Modal {
     
     // Create an input for each variant
     this.variants.forEach((variant, index) => {
+      // Add active class to the row if it's the active variant
+      const isActive = this.activeVariantIndex === index;
+      
       const variantRow = this.variantContainer.createDiv({
-        cls: 'variant-editor-row'
+        cls: isActive ? 'variant-editor-row variant-editor-row-active' : 'variant-editor-row'
       });
       
-      // Radio button for selecting active variant
-      const radioContainer = variantRow.createDiv({
-        cls: 'variant-editor-radio-container'
-      });
-      
-      const radioInput = radioContainer.createEl('input', {
-        cls: 'variant-editor-radio',
-        attr: {
-          type: 'radio',
-          name: 'active-variant',
-          id: `variant-${index}`,
-          checked: this.activeVariantIndex === index
-        }
-      });
-      
-      radioInput.addEventListener('change', () => {
-        if (radioInput.checked) {
+      // Make the entire row clickable to select this variant
+      variantRow.addEventListener('click', (e) => {
+        // Don't trigger when clicking on input or delete button
+        if (!(e.target instanceof HTMLInputElement) && 
+            !(e.target instanceof HTMLButtonElement)) {
+          // Set this as the active variant
           this.activeVariantIndex = index;
-          // Update the editor immediately when a radio button is clicked
+          
+          // Update all rows to reflect the new active state
+          this.renderVariantInputs();
+          
+          // Update the editor immediately when a variant is selected
           this.updateVariantsInEditor();
         }
       });
+      
+      // Drag handle icon for reordering (visual only for now)
+      const dragHandle = variantRow.createDiv({
+        cls: 'variant-editor-drag-handle'
+      });
+      dragHandle.innerHTML = '≡';
       
       // Label for the variant
       const variantLabel = variantRow.createDiv({

@@ -94,6 +94,19 @@
 }
 
 /* Modal styles */
+/* Header with title and close button inline */
+.variant-editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.variant-editor-header h2 {
+  margin: 0;
+  padding: 0;
+}
+
 .variant-editor-container {
   margin-bottom: 15px;
   max-height: 300px;
@@ -108,20 +121,63 @@
   padding: 6px;
   border-radius: 4px;
   background-color: var(--background-primary-alt);
-}
-
-.variant-editor-radio-container {
-  margin-right: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.variant-editor-radio {
-  width: 16px;
-  height: 16px;
   cursor: pointer;
-  accent-color: var(--interactive-accent);
+  position: relative;
+  transition: background-color 0.15s ease;
+}
+
+.variant-editor-row:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+/* Rainbow border for active variant */
+.variant-editor-row-active {
+  position: relative;
+  background-color: var(--background-secondary);
+  margin-bottom: 8px;
+  border-radius: 4px;
+  /* Remove default border */
+  border: none;
+}
+
+/* Create rainbow border with pseudo-element */
+.variant-editor-row-active::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, #ff5e5e, #ffdb4d, #52fa5a, #4db8ff, #c878ff);
+  border-radius: 6px;
+  z-index: -1;
+}
+
+/* Create inner background to make border appear as outline */
+.variant-editor-row-active::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--background-secondary);
+  border-radius: 4px;
+  z-index: -1;
+}
+
+/* Make sure the container doesn't clip the border */
+.variant-editor-container {
+  padding: 0;
+  overflow: visible;
+}
+
+/* Drag handle styling */
+.variant-editor-drag-handle {
+  font-size: 18px;
+  margin-right: 8px;
+  color: var(--text-muted);
+  cursor: grab;
 }
 
 .variant-editor-label {
