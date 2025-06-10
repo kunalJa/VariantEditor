@@ -416,6 +416,28 @@ export default class VariantEditor extends Plugin {
               from.ch = updateFrom.ch;
               to.ch = updateFrom.ch + variantSyntax.length;
               
+              // Update selection positions for highlighting
+              const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+              if (activeView) {
+                const editorView = (activeView.editor as any).cm;
+                if (editorView) {
+                  try {
+                    // Convert updated line/ch positions to absolute character positions
+                    const fromPos = editorView.state.doc.line(updateFrom.line + 1).from + updateFrom.ch;
+                    const toPos = editorView.state.doc.line(updateFrom.line + 1).from + updateFrom.ch + variantSyntax.length;
+                    
+                    // Update the exact selection range for highlighting
+                    this.selectionFrom = fromPos;
+                    this.selectionTo = toPos;
+                    
+                    // Force editor refresh to update decorations
+                    this.app.workspace.updateOptions();
+                  } catch (e) {
+                    console.error('Error updating selection positions:', e);
+                  }
+                }
+              }
+              
               const action = isExistingVariant ? 'Updated' : 'Created';
               // Only show notice on explicit user action, not on every update
               if (commitVariant) {

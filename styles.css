@@ -26,21 +26,22 @@
 .fh-highlight {
   background-color: var(--text-highlight-bg);
   color: var(--text-normal) !important;
-  font-weight: 600;
-  padding: 0 2px;
-  border-radius: 3px;
-  z-index: 10;
+  /* Use the same styling approach as native selection */
+  padding: 0;
+  margin: 0;
+  border-radius: 0;
+  z-index: 1;
   position: relative;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+  box-shadow: none;
 }
 
 /* Make highlighted text stand out even when selected */
 .cm-line .cm-selectionBackground ~ .fh-highlight,
 .cm-line .cm-selectionBackground + .fh-highlight,
 .cm-line .fh-highlight.cm-selectionBackground {
-  background-color: #ffcf40 !important; /* Stronger yellow that shows through selection */
-  mix-blend-mode: multiply;
-  opacity: 0.9;
+  background-color: rgba(255, 207, 64, 0.6) !important; /* Lighter yellow that shows through selection */
+  mix-blend-mode: normal;
+  opacity: 1;
 }
 
 /* Variant indicator styles */
