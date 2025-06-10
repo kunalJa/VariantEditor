@@ -6,7 +6,60 @@ import { TextInputModal } from './modals/TextInputModal';
 import { ViewUpdate, PluginValue, EditorView, ViewPlugin, Decoration, DecorationSet, WidgetType } from '@codemirror/view';
 import { RangeSetBuilder, StateField, Extension } from '@codemirror/state';
 
-// No longer need the ActiveVariantWidget class as we're using CSS-based approach
+/**
+ * Widget that renders a clickable variant text
+ * Clicking on it will select the variant and open the editor
+ */
+class ClickableVariantWidget extends WidgetType {
+  constructor(
+    private plugin: VariantEditor,
+    private text: string,
+    private fullVariant: string,
+    private variantIndex: string,
+    private from: number,
+    private to: number
+  ) {
+    super();
+  }
+
+  toDOM(view: EditorView): HTMLElement {
+    const span = document.createElement('span');
+    span.textContent = this.text;
+    span.className = 'variant-active-option clickable-variant';
+    span.setAttribute('data-full-variant', this.fullVariant);
+    span.setAttribute('data-variant-index', this.variantIndex);
+    
+    // Add click handler
+    span.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Select the entire variant in the editor
+      const state = view.state;
+      const doc = state.doc;
+      
+      // Find the positions in the current state
+      const from = this.from;
+      const to = this.to;
+      
+      // Set the selection to the entire variant
+      view.dispatch({
+        selection: {anchor: from, head: to}
+      });
+      
+      // Call the highlightSelection method
+      this.plugin.highlightSelection();
+    });
+    
+    return span;
+  }
+
+  eq(other: ClickableVariantWidget): boolean {
+    return this.text === other.text && 
+           this.fullVariant === other.fullVariant && 
+           this.variantIndex === other.variantIndex;
+  }
+}
 
 export default class VariantEditor extends Plugin {
   // Track active line for dimming
@@ -42,6 +95,13 @@ export default class VariantEditor extends Plugin {
         callback: () => this.clearHighlight()
       });
       
+      // Register command to commit all variants in selection or document
+      this.addCommand({
+        id: 'variant-editor-commit-all',
+        name: 'Variant Editor: Commit All Variants in Selection/Document',
+        editorCallback: (editor) => this.commitAllVariants(editor)
+      });
+      
       // Register the editor extension for dimming
       this.dimExtension = this.createDimExtension();
       
@@ -62,6 +122,9 @@ export default class VariantEditor extends Plugin {
    * while keeping the original text editable
    */
   private createVariantIndicatorExtension(): Extension {
+    // Store a reference to the plugin instance for the widget to use
+    const pluginInstance = this;
+    
     return ViewPlugin.fromClass(
       class {
         decorations: DecorationSet;
@@ -117,16 +180,20 @@ export default class VariantEditor extends Plugin {
                 })
               );
               
-              // 2. Show the active variant
+              // 2. Show the active variant as a clickable widget
+              const activeVariantText = variantsText.split('|')[activeIndex];
               builder.add(
                 activeVariantStart,
                 activeVariantEnd,
-                Decoration.mark({
-                  attributes: {
-                    class: 'variant-active-option',
-                    'data-full-variant': fullMatch,
-                    'data-variant-index': activeIndex.toString()
-                  }
+                Decoration.replace({
+                  widget: new ClickableVariantWidget(
+                    pluginInstance,
+                    activeVariantText,
+                    fullMatch,
+                    activeIndex.toString(),
+                    matchStart,
+                    matchEnd
+                  )
                 })
               );
               
@@ -280,7 +347,8 @@ export default class VariantEditor extends Plugin {
     return [cursorTrackingField, dimPlugin];
   }
 
-  private highlightSelection(): void {
+  // Make this public so the widget can access it
+  highlightSelection(): void {
     try {
       const view = this.app.workspace.getActiveViewOfType(MarkdownView);
       if (!view) return;
@@ -458,6 +526,85 @@ export default class VariantEditor extends Plugin {
     }
   }
 
+  /**
+   * Commits all variants in the selection or entire document
+   * @param editor The editor instance
+   */
+  private commitAllVariants(editor: Editor): void {
+    try {
+      // Get the selection or use the entire document
+      let text: string;
+      let from: EditorPosition;
+      let to: EditorPosition;
+      
+      const selection = editor.listSelections()[0];
+      if (selection && (selection.anchor.line !== selection.head.line || selection.anchor.ch !== selection.head.ch)) {
+        // Use the selection
+        from = {
+          line: Math.min(selection.anchor.line, selection.head.line),
+          ch: Math.min(selection.anchor.ch, selection.head.ch)
+        };
+        
+        to = {
+          line: Math.max(selection.anchor.line, selection.head.line),
+          ch: Math.max(selection.anchor.ch, selection.head.ch)
+        };
+        
+        text = editor.getRange(from, to);
+      } else {
+        // Use the entire document
+        from = { line: 0, ch: 0 };
+        to = { line: editor.lineCount() - 1, ch: editor.getLine(editor.lineCount() - 1).length };
+        text = editor.getValue();
+      }
+      
+      // Find all variants in the text
+      const variantRegex = /\{\{([^{}]+?)\}\}\^(\d+)/g;
+      let match;
+      let variantsFound = 0;
+      let lastIndex = 0;
+      let result = '';
+      
+      // Process each variant
+      while ((match = variantRegex.exec(text)) !== null) {
+        // Add text before this variant
+        result += text.substring(lastIndex, match.index);
+        
+        // Extract variant information
+        const variants = match[1].split('|');
+        const activeIndex = parseInt(match[2], 10);
+        
+        // Add the active variant text
+        if (activeIndex >= 0 && activeIndex < variants.length) {
+          result += variants[activeIndex];
+          variantsFound++;
+        } else {
+          // If active index is invalid, keep the original text
+          result += match[0];
+        }
+        
+        // Update lastIndex for next iteration
+        lastIndex = match.index + match[0].length;
+      }
+      
+      // Add any remaining text
+      result += text.substring(lastIndex);
+      
+      // Replace the text in the editor
+      editor.replaceRange(result, from, to);
+      
+      // Show a notice with the results
+      if (variantsFound > 0) {
+        new Notice(`Committed ${variantsFound} variant${variantsFound === 1 ? '' : 's'}`);
+      } else {
+        new Notice('No variants found to commit');
+      }
+    } catch (e) {
+      console.error('Error in commitAllVariants:', e);
+      new Notice('Error committing variants');
+    }
+  }
+  
   private clearHighlight(): void {
     try {
       // Reset state

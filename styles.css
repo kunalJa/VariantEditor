@@ -79,8 +79,18 @@
   border-radius: 2px;
   position: relative;
   pointer-events: auto;
-  cursor: text;
   z-index: 5;
+}
+
+/* Style for clickable variants */
+.clickable-variant {
+  cursor: pointer;
+  border-bottom: 1px dotted var(--interactive-accent);
+  transition: background-color 0.15s ease;
+}
+
+.clickable-variant:hover {
+  background-color: var(--background-modifier-hover);
 }
 
 /* Modal styles */
