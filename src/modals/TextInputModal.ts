@@ -48,6 +48,12 @@ export class TextInputModal extends Modal {
   onOpen() {
     const {contentEl, modalEl} = this;
     
+    // Hide the modal initially to prevent flashing
+    if (this.cursorPosition) {
+      modalEl.style.opacity = '0';
+      modalEl.style.transition = 'opacity 150ms ease-in-out';
+    }
+    
     // Set the title using Obsidian's built-in functionality
     this.setTitle('Manage Variants');
     
@@ -62,10 +68,12 @@ export class TextInputModal extends Modal {
     
     // Position the modal relative to the cursor if we have cursor position
     if (this.cursorPosition) {
-      // We need to position the modal after it's rendered
-      setTimeout(() => {
+      // Position immediately in the next microtask to avoid flashing
+      queueMicrotask(() => {
         this.positionModalRelativeToCursor(modalEl);
-      }, 0);
+        // Fade in the modal after positioning
+        modalEl.style.opacity = '1';
+      });
     }
     
     // We've removed the 'Selected variant' text as requested
@@ -186,30 +194,38 @@ export class TextInputModal extends Modal {
     const viewportHeight = window.innerHeight;
     if (top + modalRect.height + 114 > viewportHeight) {
       // Position above the line instead
-      top = lineRect.top - padding;
+      top = lineRect.top - modalRect.height - padding;
       positionAbove = true;
     }
     
     // Center horizontally relative to the line
-    const left = lineRect.left + (lineRect.width / 2) - (modalRect.width / 2);
+    let left = lineRect.left + (lineRect.width / 2) - (modalRect.width / 2);
+    
+    // Make sure the modal doesn't go off the sides of the screen
+    const viewportWidth = window.innerWidth;
+    if (left < 10) {
+      left = 10; // Minimum 10px from left edge
+    } else if (left + modalRect.width > viewportWidth - 10) {
+      left = viewportWidth - modalRect.width - 10; // Minimum 10px from right edge
+    }
     
     // Apply the position
     modalEl.style.position = 'fixed';
+    modalEl.style.transform = 'none'; // Remove default centering
     
     if (positionAbove) {
-      // When positioned above, align to bottom and make it grow upward
-      modalEl.style.top = 'auto';
-      modalEl.style.bottom = `${Math.max(0, viewportHeight - top)}px`;
+      // When positioned above, set explicit top position
+      modalEl.style.top = `${Math.max(0, top)}px`;
+      modalEl.style.bottom = 'auto';
       modalEl.classList.add('variant-editor-modal-above');
     } else {
-      // When positioned below, align to top and make it grow downward (default)
+      // When positioned below, set explicit top position
       modalEl.style.top = `${Math.max(0, top)}px`;
       modalEl.style.bottom = 'auto';
       modalEl.classList.remove('variant-editor-modal-above');
     }
     
     modalEl.style.left = `${Math.max(0, left)}px`;
-    modalEl.style.transform = 'none';
   }
 
   /**
