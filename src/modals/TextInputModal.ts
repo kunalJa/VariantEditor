@@ -194,7 +194,8 @@ export class TextInputModal extends Modal {
     const viewportHeight = window.innerHeight;
     if (top + modalRect.height + 114 > viewportHeight) {
       // Position above the line instead
-      top = lineRect.top - modalRect.height - padding;
+      // We want the bottom of the modal to be at the top of the line
+      top = Math.max(10, lineRect.top - modalRect.height - 150);
       positionAbove = true;
     }
     
@@ -487,8 +488,30 @@ export class TextInputModal extends Modal {
             this.activeVariantIndex--;
           }
           
+          // If we're deleting the last non-empty variant, update it
+          if (this.lastNonEmptyVariantIndex === index) {
+            // Find the new last non-empty variant
+            for (let i = this.variants.length - 1; i >= 0; i--) {
+              if (i !== index && (this.variants[i].trim().length > 0 || i === 0)) {
+                this.lastNonEmptyVariantIndex = i;
+                break;
+              }
+            }
+          }
+          
+          // Remove the variant from the array
           this.variants.splice(index, 1);
+          
+          // If we deleted all variants except one, make sure it's not empty
+          if (this.variants.length === 1 && this.variants[0].trim() === '') {
+            this.variants[0] = ' '; // Use a space as default content
+          }
+          
+          // Re-render the variant inputs
           this.renderVariantInputs();
+          
+          // Update the editor content to reflect the deletion
+          this.updateVariantsInEditor();
         });
       }
       

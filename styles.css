@@ -295,10 +295,10 @@
   border: 1px solid var(--background-modifier-border) !important;
 }
 
-/* When modal is positioned above the highlighted line, make it grow upward */
+/* When modal is positioned above the highlighted line, we no longer reorder elements */
 .variant-editor-modal-above .variant-editor-flex-container {
+  /* Keep normal flow, just position the modal differently */
   display: flex !important;
-  flex-direction: column-reverse !important;
 }
 
 .variant-editor-flex-container {
