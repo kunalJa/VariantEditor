@@ -48,6 +48,9 @@ export class TextInputModal extends Modal {
   onOpen() {
     const {contentEl, modalEl} = this;
     
+    // Set the title using Obsidian's built-in functionality
+    this.setTitle('Manage Variants');
+    
     // Add classes for styling
     modalEl.addClass('variant-editor-modal');
     modalEl.addClass('variant-editor-no-dim'); // Class to remove background dimming
@@ -64,14 +67,6 @@ export class TextInputModal extends Modal {
         this.positionModalRelativeToCursor(modalEl);
       }, 0);
     }
-    
-    // Create header container with title and close button inline
-    const headerContainer = flexContainer.createDiv({
-      cls: 'variant-editor-header'
-    });
-    
-    // Add the title - always use "Manage Variants"
-    headerContainer.createEl('h2', {text: 'Manage Variants'});
     
     // Show the original text or selected variant
     const isEditing = this.variants.length > 1;
@@ -191,7 +186,7 @@ export class TextInputModal extends Modal {
     
     // Make sure the modal doesn't go off the bottom of the screen
     const viewportHeight = window.innerHeight;
-    if (top + modalRect.height > viewportHeight) {
+    if (top + modalRect.height + 114 > viewportHeight) {
       // Position above the line instead
       top = lineRect.top - padding;
       positionAbove = true;
