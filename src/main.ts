@@ -47,9 +47,8 @@ class ClickableVariantWidget extends WidgetType {
         selection: {anchor: from, head: to}
       });
       
-      // Call the highlightSelection method with isDirectClick=true
-      // This ensures the modal opens when clicking directly on a variant
-      this.plugin.highlightSelection(true);
+      // Call the highlightSelection method
+      this.plugin.highlightSelection();
     });
     
     return span;
@@ -86,7 +85,7 @@ export default class VariantEditor extends Plugin {
         id: 'variant-editor-highlight',
         name: 'Variant Editor: Highlight Word & Sentence',
         hotkeys: [{ modifiers: ["Mod"], key: "h" }],
-        callback: () => this.highlightSelection(true) // Pass true to force modal to open when using hotkey
+        callback: () => this.highlightSelection()
       });
       
       // Register the clear command
@@ -349,7 +348,7 @@ export default class VariantEditor extends Plugin {
   }
 
   // Make this public so the widget can access it
-  highlightSelection(isDirectClick: boolean = false): void {
+  highlightSelection(): void {
     try {
       const view = this.app.workspace.getActiveViewOfType(MarkdownView);
       if (!view) return;
@@ -374,7 +373,7 @@ export default class VariantEditor extends Plugin {
         ch: Math.max(selection.anchor.ch, selection.head.ch)
       };
       
-      const selectedText = editor.getRange(from, to);
+      let selectedText = editor.getRange(from, to);
       if (!selectedText) return;
       
       this.selectedText = selectedText;
@@ -404,8 +403,13 @@ export default class VariantEditor extends Plugin {
             const matchStart = match.index;
             const matchEnd = matchStart + match[0].length;
             
-            if (from.ch >= matchStart && to.ch <= matchEnd) {
-              // Selection is inside a variant
+            // Check if selection overlaps with the variant at all
+            // This handles partial selections that include any part of the variant
+            if ((from.ch >= matchStart && from.ch < matchEnd) || // Selection starts inside variant
+                (to.ch > matchStart && to.ch <= matchEnd) ||    // Selection ends inside variant
+                (from.ch <= matchStart && to.ch >= matchEnd)) {  // Selection contains variant
+              
+              // Selection overlaps with a variant - capture the entire variant
               initialText = match[1];
               initialActiveIndex = parseInt(match[2], 10);
               isExistingVariant = true;
@@ -414,16 +418,13 @@ export default class VariantEditor extends Plugin {
               from.ch = matchStart;
               to.ch = matchEnd;
               editor.setSelection(from, to);
+              
+              // Update selectedText to match the expanded selection
+              selectedText = editor.getRange(from, to);
               break;
             }
           }
         }
-      }
-      
-      // If not a direct click and not an existing variant, don't open the modal
-      // This prevents the modal from opening when selecting text that happens to contain variant syntax
-      if (!isDirectClick && !isExistingVariant) {
-        return;
       }
       
       if (isExistingVariant) {
@@ -433,7 +434,7 @@ export default class VariantEditor extends Plugin {
       // Set active line for dimming
       this.activeLine = from.line + 1;
       
-      // Store the selected text for highlighting
+      // Store the selected text for highlighting - make sure we use the potentially updated selection
       this.selectedText = selectedText;
       
       // Convert EditorPosition to absolute character positions for highlighting
