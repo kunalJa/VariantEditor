@@ -68,12 +68,7 @@ export class TextInputModal extends Modal {
       }, 0);
     }
     
-    // Show the original text or selected variant
-    const isEditing = this.variants.length > 1;
-    flexContainer.createEl('div', {
-      text: isEditing ? `Selected variant: "${this.variants[this.activeVariantIndex]}"` : `Original text: "${this.originalText}"`,
-      cls: 'variant-editor-original-text'
-    });
+    // We've removed the 'Selected variant' text as requested
     
     // Create container for variant inputs
     this.variantContainer = flexContainer.createDiv({
@@ -141,9 +136,12 @@ export class TextInputModal extends Modal {
       })
       .buttonEl.addClass('variant-editor-button', 'variant-editor-commit-button');
     
+    // Define whether we're editing existing variants or creating new ones
+    const hasMultipleVariants = this.variants.length > 1;
+    
     // Create/Update variants button
     new ButtonComponent(buttonsContainer)
-      .setButtonText(isEditing ? 'Update Variants' : 'Create Variants')
+      .setButtonText(hasMultipleVariants ? 'Update Variants' : 'Create Variants')
       .setCta()
       .onClick(() => {
         this.updateVariantsInEditor();
@@ -298,7 +296,7 @@ export class TextInputModal extends Modal {
       
       // Make the entire row clickable to select this variant
       variantRow.addEventListener('click', (e) => {
-        // Don't trigger when clicking on delete button
+        // Don't trigger when clicking on delete button or drag handle
         if (!(e.target instanceof HTMLButtonElement)) {
           // Set this as the active variant
           this.activeVariantIndex = index;
@@ -308,27 +306,46 @@ export class TextInputModal extends Modal {
             this.lastNonEmptyVariantIndex = index;
           }
           
-          // Update all rows to reflect the new active state
-          this.renderVariantInputs();
-          
-          // Only update the editor if the selected variant has content
-          if (variant.trim().length > 0 || index === 0) {
-            // Update the editor immediately when a non-empty variant is selected
-            this.updateVariantsInEditor();
-          }
-          
-          // Focus the contenteditable div when clicking on the row
-          // but only if we didn't click directly on the contenteditable (to avoid disrupting editing)
-          if (!(e.target instanceof HTMLDivElement) || !e.target.hasAttribute('contenteditable')) {
+          // If we're clicking directly on the contenteditable div, let its own handler manage focus
+          // Otherwise, update the UI and focus the contenteditable
+          if (e.target instanceof HTMLDivElement && e.target.hasAttribute('contenteditable')) {
+            // Just update the active state visually without re-rendering
+            const currentActive = this.variantContainer.querySelector('.variant-editor-row-active');
+            if (currentActive && currentActive !== variantRow) {
+              currentActive.removeClass('variant-editor-row-active');
+              variantRow.addClass('variant-editor-row-active');
+              
+              // Only update the editor if the selected variant has content
+              if (variant.trim().length > 0 || index === 0) {
+                this.updateVariantsInEditor();
+              }
+            }
+          } else {
+            // For clicks elsewhere in the row, do a full update and focus the input
+            this.renderVariantInputs();
+            
+            // Only update the editor if the selected variant has content
+            if (variant.trim().length > 0 || index === 0) {
+              this.updateVariantsInEditor();
+            }
+            
+            // Focus the contenteditable div when clicking anywhere else on the row
             setTimeout(() => {
-              variantInput.focus();
-              // Place cursor at the end
-              const range = document.createRange();
-              const sel = window.getSelection();
-              range.selectNodeContents(variantInput);
-              range.collapse(false);
-              sel?.removeAllRanges();
-              sel?.addRange(range);
+              // Find the contenteditable div in the newly rendered row
+              const newRow = this.variantContainer.querySelectorAll('.variant-editor-row')[index];
+              if (newRow) {
+                const input = newRow.querySelector('.variant-editor-input');
+                if (input) {
+                  (input as HTMLElement).focus();
+                  // Place cursor at the end
+                  const range = document.createRange();
+                  const sel = window.getSelection();
+                  range.selectNodeContents(input as Node);
+                  range.collapse(false);
+                  sel?.removeAllRanges();
+                  sel?.addRange(range);
+                }
+              }
             }, 0);
           }
         }
@@ -369,8 +386,36 @@ export class TextInputModal extends Modal {
       
       // Add click handler specifically for the contenteditable div
       variantInput.addEventListener('click', (e) => {
-        e.stopPropagation(); // Prevent row click handler from firing
-        variantInput.focus();
+        // Only handle the activation if this isn't already the active variant
+        // This allows text selection to work when clicking within the already active variant
+        if (this.activeVariantIndex !== index) {
+          // Set this as the active variant
+          this.activeVariantIndex = index;
+          
+          // If this variant has content, update the last non-empty variant index
+          if (variant.trim().length > 0 || index === 0) {
+            this.lastNonEmptyVariantIndex = index;
+          }
+          
+          // Only update the rows visually if we're changing the active variant
+          const currentActive = this.variantContainer.querySelector('.variant-editor-row-active');
+          if (currentActive) {
+            currentActive.removeClass('variant-editor-row-active');
+          }
+          variantRow.addClass('variant-editor-row-active');
+          
+          // Only update the editor if the selected variant has content
+          if (variant.trim().length > 0 || index === 0) {
+            // Update the editor immediately when a non-empty variant is selected
+            this.updateVariantsInEditor();
+          }
+        }
+        
+        // Always focus the input when clicked directly
+        (variantInput as HTMLElement).focus();
+        
+        // Prevent the event from bubbling to avoid double-handling
+        e.stopPropagation();
       });
       
       // Update the variant when the input changes
