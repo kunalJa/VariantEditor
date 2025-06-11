@@ -8,7 +8,7 @@ export class TextInputModal extends Modal {
   private variants: string[] = [];
   private activeVariantIndex: number = 0;
   private lastNonEmptyVariantIndex: number = 0; // Track the last non-empty variant index
-  private onSubmit: (result: string, activeIndex?: number, commitVariant?: boolean, currentFrom?: EditorPosition | null, currentTo?: EditorPosition | null) => void;
+  private onSubmit: (result: string, activeIndex?: number, commitVariant?: boolean, currentFrom?: EditorPosition | null, currentTo?: EditorPosition | null, modalClosed?: boolean) => void;
   private originalText: string;
   private variantContainer: HTMLElement;
   private cursorPosition: EditorPosition | null;
@@ -19,7 +19,7 @@ export class TextInputModal extends Modal {
   constructor(
     app: App, 
     originalText: string,
-    onSubmit: (result: string, activeIndex?: number, commitVariant?: boolean, currentFrom?: EditorPosition | null, currentTo?: EditorPosition | null) => void,
+    onSubmit: (result: string, activeIndex?: number, commitVariant?: boolean, currentFrom?: EditorPosition | null, currentTo?: EditorPosition | null, modalClosed?: boolean) => void,
     cursorPosition: EditorPosition | null = null,
     initialActiveIndex: number = 0,
     currentFrom: EditorPosition | null = null,
@@ -535,5 +535,9 @@ export class TextInputModal extends Modal {
   onClose() {
     const {contentEl} = this;
     contentEl.empty();
+    
+    // Notify the parent that the modal was closed without committing
+    // We pass an explicit modalClosed=true flag to indicate this was triggered by modal closing
+    this.onSubmit(this.variants[this.activeVariantIndex], this.activeVariantIndex, false, this.currentFrom, this.currentTo, true);
   }
 }

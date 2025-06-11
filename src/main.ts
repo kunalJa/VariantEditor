@@ -464,21 +464,25 @@ export default class VariantEditor extends Plugin {
       new TextInputModal(
         this.app,
         initialText,
-        (variantText, activeIndex, commitVariant, currentFrom, currentTo) => {
+        (variantText, activeIndex, commitVariant, currentFrom, currentTo, modalClosed) => {
           // Use the updated cursor positions if provided, otherwise use the original positions
           const updateFrom = currentFrom || from;
           const updateTo = currentTo || to;
           
-          if (commitVariant) {
-            // Replace the variant with just the active variant text
+          if (modalClosed) {
+            // Modal was closed without committing (via ESC key or clicking outside)
+            // Clear the highlights
+            this.clearHighlight();
+          } else if (commitVariant === true) {
+            // Replace the variant with just the active variant text (commit action)
             if (variantText) {
               editor.replaceRange(variantText, updateFrom, updateTo);
               new Notice(`Committed variant: "${variantText}"`);
-              // Only clear highlights when committing
+              // Clear highlights when committing
               this.clearHighlight();
             }
           } else {
-            // Create or update the variant syntax
+            // Create or update the variant syntax (normal variant creation/update)
             const variants = variantText.split('|').filter(v => v);
             
             if (variants.length > 0) {
