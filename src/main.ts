@@ -47,8 +47,9 @@ class ClickableVariantWidget extends WidgetType {
         selection: {anchor: from, head: to}
       });
       
-      // Call the highlightSelection method
-      this.plugin.highlightSelection();
+      // Call the highlightSelection method with isDirectClick=true
+      // This ensures the modal opens when clicking directly on a variant
+      this.plugin.highlightSelection(true);
     });
     
     return span;
@@ -85,7 +86,7 @@ export default class VariantEditor extends Plugin {
         id: 'variant-editor-highlight',
         name: 'Variant Editor: Highlight Word & Sentence',
         hotkeys: [{ modifiers: ["Mod"], key: "h" }],
-        callback: () => this.highlightSelection()
+        callback: () => this.highlightSelection(true) // Pass true to force modal to open when using hotkey
       });
       
       // Register the clear command
@@ -348,7 +349,7 @@ export default class VariantEditor extends Plugin {
   }
 
   // Make this public so the widget can access it
-  highlightSelection(): void {
+  highlightSelection(isDirectClick: boolean = false): void {
     try {
       const view = this.app.workspace.getActiveViewOfType(MarkdownView);
       if (!view) return;
@@ -417,6 +418,12 @@ export default class VariantEditor extends Plugin {
             }
           }
         }
+      }
+      
+      // If not a direct click and not an existing variant, don't open the modal
+      // This prevents the modal from opening when selecting text that happens to contain variant syntax
+      if (!isDirectClick && !isExistingVariant) {
+        return;
       }
       
       if (isExistingVariant) {
