@@ -1,4 +1,4 @@
-import { App, Modal, Setting, ButtonComponent, EditorPosition } from 'obsidian';
+import { App, Modal, Setting, ButtonComponent, setTooltip, EditorPosition } from 'obsidian';
 
 /**
  * Modal for text input that appears after highlighting
@@ -303,9 +303,8 @@ export class TextInputModal extends Modal {
       
       // Make the entire row clickable to select this variant
       variantRow.addEventListener('click', (e) => {
-        // Don't trigger when clicking on input or delete button
-        if (!(e.target instanceof HTMLInputElement) && 
-            !(e.target instanceof HTMLButtonElement)) {
+        // Don't trigger when clicking on delete button
+        if (!(e.target instanceof HTMLButtonElement)) {
           // Set this as the active variant
           this.activeVariantIndex = index;
           
@@ -322,34 +321,66 @@ export class TextInputModal extends Modal {
             // Update the editor immediately when a non-empty variant is selected
             this.updateVariantsInEditor();
           }
+          
+          // Focus the contenteditable div when clicking on the row
+          // but only if we didn't click directly on the contenteditable (to avoid disrupting editing)
+          if (!(e.target instanceof HTMLDivElement) || !e.target.hasAttribute('contenteditable')) {
+            setTimeout(() => {
+              variantInput.focus();
+              // Place cursor at the end
+              const range = document.createRange();
+              const sel = window.getSelection();
+              range.selectNodeContents(variantInput);
+              range.collapse(false);
+              sel?.removeAllRanges();
+              sel?.addRange(range);
+            }, 0);
+          }
         }
       });
       
       // Drag handle icon for reordering (visual only for now)
-      const dragHandle = variantRow.createDiv({
-        cls: 'variant-editor-drag-handle'
+      const dragHandle = variantRow.createEl('button', {
+        cls: 'variant-editor-drag-handle clickable-icon',
+        attr: {
+          'aria-label': 'Reorder variants'
+        }
       });
       dragHandle.innerHTML = '≡';
       
-      // Label for the variant
-      const variantLabel = variantRow.createDiv({
-        cls: 'variant-editor-label',
-        text: index === 0 ? 'Original:' : `Variant ${index}:`
+      // Use Obsidian's setTooltip API to position tooltip above the button
+      setTooltip(dragHandle, 'Reorder variants', {
+        placement: 'top'
       });
       
-      // Input for the variant
-      const variantInput = variantRow.createEl('input', {
+      // Input for the variant - placeholder text varies by index
+      const placeholder = index === 0 ? 'Original text' : 
+                         index === this.variants.length - 1 ? 'Add a variant' : 
+                         `Variant ${index}`;
+      
+      // Create contenteditable div instead of input
+      const variantInput = variantRow.createDiv({
         cls: 'variant-editor-input',
         attr: {
-          type: 'text',
-          value: variant,
-          placeholder: 'Enter variant text'
+          contenteditable: 'true',
+          'data-placeholder': placeholder,
+          'role': 'textbox',
+          'aria-multiline': 'false'
         }
+      });
+      
+      // Set the text content
+      variantInput.textContent = variant;
+      
+      // Add click handler specifically for the contenteditable div
+      variantInput.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent row click handler from firing
+        variantInput.focus();
       });
       
       // Update the variant when the input changes
       variantInput.addEventListener('input', (e) => {
-        this.variants[index] = (e.target as HTMLInputElement).value.trim();
+        this.variants[index] = variantInput.textContent || '';
         
         // Debounce the update to avoid too many updates while typing
         if (variantInput.dataset.updateTimeout) {
@@ -369,7 +400,7 @@ export class TextInputModal extends Modal {
             }
             this.updateVariantsInEditor();
           }
-        }, 500); // 500ms debounce
+        }, 300); // 300ms debounce - slightly faster for better responsiveness
         
         variantInput.dataset.updateTimeout = timeoutId.toString();
       });
@@ -378,8 +409,16 @@ export class TextInputModal extends Modal {
       if (index > 0) {
         // Delete button
         const deleteButton = variantRow.createEl('button', {
-          cls: 'variant-editor-delete-button',
-          text: '×'
+          cls: 'variant-editor-delete-button clickable-icon',
+          attr: {
+            'aria-label': 'Delete variant'
+          }
+        });
+        deleteButton.innerHTML = '×';
+        
+        // Use Obsidian's setTooltip API to position tooltip above the button
+        setTooltip(deleteButton, 'Delete variant', {
+          placement: 'top'
         });
         
         deleteButton.addEventListener('click', () => {
@@ -399,7 +438,16 @@ export class TextInputModal extends Modal {
       
       // Focus the first empty input
       if (variant === '' && index === this.variants.length - 1) {
-        setTimeout(() => variantInput.focus(), 10);
+        setTimeout(() => {
+          variantInput.focus();
+          // Place cursor at the end
+          const range = document.createRange();
+          const sel = window.getSelection();
+          range.selectNodeContents(variantInput);
+          range.collapse(false); // false means collapse to end
+          sel?.removeAllRanges();
+          sel?.addRange(range);
+        }, 10);
       }
     });
   }
