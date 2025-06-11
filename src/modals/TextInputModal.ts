@@ -83,41 +83,15 @@ export class TextInputModal extends Modal {
       cls: 'variant-editor-container'
     });
     
-    // Add the first variant (original text)
-    this.renderVariantInputs();
+    // Always ensure we have an empty row at the end for adding new variants
+    // We'll add an empty variant if there isn't one already
+    if (this.variants.length === 0 || this.variants[this.variants.length - 1].trim() !== '') {
+      this.variants.push('');
+    }
     
-    // Add button to add new variant
-    const addVariantContainer = flexContainer.createDiv({
-      cls: 'variant-editor-add-container'
-    });
-    
-    const addVariantButton = new ButtonComponent(addVariantContainer)
-      .setButtonText('+ Add Variant')
-      .onClick(() => {
-        // Store the current active variant index before adding a new one
-        const previousActiveIndex = this.activeVariantIndex;
-        
-        // Add the new variant and set it as active in the UI
-        this.variants.push('');
-        this.activeVariantIndex = this.variants.length - 1;
-        this.renderVariantInputs();
-        
-        // Focus will be on the new input, but we'll update the editor after a short delay
-        // to allow the user to type something in the new variant
-        setTimeout(() => {
-          // Only update if we have at least two non-empty variants
-          const nonEmptyVariants = this.variants.filter(v => v.trim().length > 0);
-          if (nonEmptyVariants.length >= 2) {
-            // If the new variant is still empty, restore the previous active index
-            if (this.variants[this.activeVariantIndex].trim().length === 0) {
-              this.activeVariantIndex = previousActiveIndex;
-            }
-            this.updateVariantsInEditor();
-          }
-        }, 100);
-      });
-    
-    addVariantButton.buttonEl.addClass('variant-editor-add-button');
+    // Add the first variant (original text) and the empty row
+    // Focus the active variant (not the empty one at the end)
+    this.renderVariantInputs(this.activeVariantIndex);
     
     // Add buttons container
     const buttonsContainer = flexContainer.createDiv({
@@ -298,7 +272,7 @@ export class TextInputModal extends Modal {
     }
   }
 
-  private renderVariantInputs() {
+  private renderVariantInputs(focusIndex?: number) {
     // Clear existing inputs
     this.variantContainer.empty();
     
@@ -307,8 +281,16 @@ export class TextInputModal extends Modal {
       // Add active class to the row if it's the active variant
       const isActive = this.activeVariantIndex === index;
       
+      // Check if this is the last empty row (add variant placeholder)
+      const isLastEmptyRow = index === this.variants.length - 1 && variant.trim() === '';
+      
+      // Build the row classes
+      let rowClasses = 'variant-editor-row';
+      if (isActive) rowClasses += ' variant-editor-row-active';
+      if (isLastEmptyRow) rowClasses += ' variant-editor-row-add-variant';
+      
       const variantRow = this.variantContainer.createDiv({
-        cls: isActive ? 'variant-editor-row variant-editor-row-active' : 'variant-editor-row'
+        cls: rowClasses
       });
       
       // Make the entire row clickable to select this variant
@@ -339,7 +321,7 @@ export class TextInputModal extends Modal {
             }
           } else {
             // For clicks elsewhere in the row, do a full update and focus the input
-            this.renderVariantInputs();
+            this.renderVariantInputs(index);
             
             // Only update the editor if the selected variant has content
             if (variant.trim().length > 0 || index === 0) {
@@ -384,7 +366,7 @@ export class TextInputModal extends Modal {
       
       // Input for the variant - placeholder text varies by index
       const placeholder = index === 0 ? 'Original text' : 
-                         index === this.variants.length - 1 ? 'Add a variant' : 
+                         index === this.variants.length - 1 && variant.trim() === '' ? 'Add a variant' : 
                          `Variant ${index}`;
       
       // Create contenteditable div instead of input
@@ -439,6 +421,27 @@ export class TextInputModal extends Modal {
       variantInput.addEventListener('input', (e) => {
         this.variants[index] = variantInput.textContent || '';
         
+        // If this is the last row and user starts typing, add a new empty row
+        if (index === this.variants.length - 1 && variantInput.textContent && variantInput.textContent.trim() !== '') {
+          // Debounce adding a new row to avoid adding multiple rows rapidly
+          if (variantInput.dataset.addRowTimeout) {
+            clearTimeout(parseInt(variantInput.dataset.addRowTimeout));
+          }
+          
+          const addRowTimeoutId = setTimeout(() => {
+            // Store the current active index (the one being typed in)
+            const currentActiveIndex = this.activeVariantIndex;
+            
+            // Add a new empty variant row
+            this.variants.push('');
+            
+            // Re-render but keep focus on the current row
+            this.renderVariantInputs(currentActiveIndex);
+          }, 300);
+          
+          variantInput.dataset.addRowTimeout = addRowTimeoutId.toString();
+        }
+        
         // Debounce the update to avoid too many updates while typing
         if (variantInput.dataset.updateTimeout) {
           clearTimeout(parseInt(variantInput.dataset.updateTimeout));
@@ -462,8 +465,9 @@ export class TextInputModal extends Modal {
         variantInput.dataset.updateTimeout = timeoutId.toString();
       });
       
-      // Don't allow deleting the original variant
-      if (index > 0) {
+      // Don't allow deleting the original variant or the empty "Add a variant" row
+      const isEmptyAddVariantRow = index === this.variants.length - 1 && variant.trim() === '';
+      if (index > 0 && !isEmptyAddVariantRow) {
         // Delete button
         const deleteButton = variantRow.createEl('button', {
           cls: 'variant-editor-delete-button clickable-icon',
@@ -507,16 +511,22 @@ export class TextInputModal extends Modal {
             this.variants[0] = ' '; // Use a space as default content
           }
           
-          // Re-render the variant inputs
-          this.renderVariantInputs();
+          // Re-render the variant inputs with focus on the new active index
+          this.renderVariantInputs(this.activeVariantIndex);
           
           // Update the editor content to reflect the deletion
           this.updateVariantsInEditor();
         });
       }
       
-      // Focus the first empty input
-      if (variant === '' && index === this.variants.length - 1) {
+      // Focus logic - prioritize the specified focusIndex if provided
+      const shouldFocus = 
+        // If a specific index was provided to focus, focus that one
+        (focusIndex !== undefined && index === focusIndex) ||
+        // Otherwise, focus the last empty row only if no specific focus index was provided
+        (focusIndex === undefined && variant === '' && index === this.variants.length - 1);
+      
+      if (shouldFocus) {
         setTimeout(() => {
           variantInput.focus();
           // Place cursor at the end

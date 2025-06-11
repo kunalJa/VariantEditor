@@ -217,6 +217,34 @@
   font-style: italic;
 }
 
+/* Special styling for the last row (add variant placeholder) */
+.variant-editor-row-add-variant .variant-editor-input:empty::before {
+  color: rgba(255, 255, 255, 0.281);
+  font-style: italic;
+  font-weight: normal;
+}
+
+/* Style the last row differently - we'll add a specific class in the JS code */
+.variant-editor-row-add-variant {
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  background-color: rgba(255, 255, 255, 0.02);
+  border-radius: 6px;
+  margin-top: 8px;
+  transition: all 0.2s ease;
+}
+
+/* Hover effect for the add variant row */
+.variant-editor-row-add-variant:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Active state for the add variant row */
+.variant-editor-row-add-variant.variant-editor-row-active {
+  border-color: var(--interactive-accent);
+  background-color: rgba(var(--interactive-accent-rgb), 0.1);
+}
+
 /* Delete button styling */
 .variant-editor-delete-button {
   background: none !important;
