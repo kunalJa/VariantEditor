@@ -245,6 +245,34 @@
   background-color: rgba(var(--interactive-accent-rgb), 0.1);
 }
 
+/* Drag and drop styling */
+.variant-editor-row.dragging {
+  opacity: 0.4;
+  border: 1px dashed var(--interactive-accent);
+  background-color: rgba(var(--interactive-accent-rgb), 0.1);
+}
+
+/* Hide the drag ghost image */
+.variant-editor-drag-ghost {
+  opacity: 0;
+  position: absolute;
+  height: 0;
+  width: 0;
+  overflow: hidden;
+}
+
+.variant-editor-row.drag-over {
+  border-top: 2px solid var(--interactive-accent);
+  margin-top: 2px;
+}
+
+/* Special handling for active rows with drag-over to make indicator visible over rainbow */
+.variant-editor-row-active.drag-over {
+  box-shadow: 0 -4px 0 0 var(--interactive-accent);
+  border-top: none;
+}
+
+
 /* Delete button styling */
 .variant-editor-delete-button {
   background: none !important;

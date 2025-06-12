@@ -15,6 +15,11 @@ export class TextInputModal extends Modal {
   // Track the current variant position in the editor
   private currentFrom: EditorPosition | null;
   private currentTo: EditorPosition | null;
+  
+  // Drag and drop properties
+  private draggedElement: HTMLElement | null = null;
+  private draggedIndex: number = -1;
+  private dragOverIndex: number = -1;
 
   constructor(
     app: App, 
@@ -350,7 +355,7 @@ export class TextInputModal extends Modal {
         }
       });
       
-      // Drag handle icon for reordering (visual only for now)
+      // Drag handle icon for reordering
       const dragHandle = variantRow.createEl('button', {
         cls: 'variant-editor-drag-handle clickable-icon',
         attr: {
@@ -363,6 +368,116 @@ export class TextInputModal extends Modal {
       setTooltip(dragHandle, 'Reorder variants', {
         placement: 'top'
       });
+      
+      // Don't add drag functionality to the "Add a variant" row
+      if (!isLastEmptyRow) {
+        // Make the drag handle draggable
+        dragHandle.setAttribute('draggable', 'true');
+        
+        // Drag start event
+        dragHandle.addEventListener('dragstart', (e) => {
+          this.draggedElement = variantRow;
+          this.draggedIndex = index;
+          
+          // Add dragging class for visual feedback
+          variantRow.classList.add('dragging');
+          
+          // Create an invisible drag image to replace the default one
+          const dragGhost = document.createElement('div');
+          dragGhost.classList.add('variant-editor-drag-ghost');
+          document.body.appendChild(dragGhost);
+          
+          // Set the custom drag image
+          if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', index.toString());
+            e.dataTransfer.setDragImage(dragGhost, 0, 0);
+            
+            // Clean up the ghost element after a short delay
+            setTimeout(() => {
+              document.body.removeChild(dragGhost);
+            }, 0);
+          }
+        });
+        
+        // Drag end event
+        dragHandle.addEventListener('dragend', () => {
+          if (this.draggedElement) {
+            this.draggedElement.classList.remove('dragging');
+            this.draggedElement = null;
+            this.draggedIndex = -1;
+            
+            // Remove drag-over class from all rows
+            const allRows = this.variantContainer.querySelectorAll('.variant-editor-row');
+            allRows.forEach(row => row.classList.remove('drag-over'));
+          }
+        });
+        
+        // Drag over event for the row
+        variantRow.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          // Only process if we have a dragged element
+          if (!this.draggedElement || this.draggedIndex === index) return;
+          
+          // Add visual indicator
+          variantRow.classList.add('drag-over');
+          
+          // Update the dragOverIndex
+          this.dragOverIndex = index;
+        });
+        
+        // Drag leave event
+        variantRow.addEventListener('dragleave', () => {
+          variantRow.classList.remove('drag-over');
+        });
+        
+        // Drop event
+        variantRow.addEventListener('drop', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          // Only process if we have a dragged element
+          if (!this.draggedElement || this.draggedIndex === index) return;
+          
+          // Remove visual indicator
+          variantRow.classList.remove('drag-over');
+          
+          // Move the variant in the array
+          const draggedVariant = this.variants[this.draggedIndex];
+          
+          // Remove the dragged variant
+          this.variants.splice(this.draggedIndex, 1);
+          
+          // Insert at the new position
+          this.variants.splice(index, 0, draggedVariant);
+          
+          // Update active index if needed
+          if (this.activeVariantIndex === this.draggedIndex) {
+            this.activeVariantIndex = index;
+          } else if (this.activeVariantIndex > this.draggedIndex && this.activeVariantIndex <= index) {
+            this.activeVariantIndex--;
+          } else if (this.activeVariantIndex < this.draggedIndex && this.activeVariantIndex >= index) {
+            this.activeVariantIndex++;
+          }
+          
+          // Update lastNonEmptyVariantIndex if needed
+          if (this.lastNonEmptyVariantIndex === this.draggedIndex) {
+            this.lastNonEmptyVariantIndex = index;
+          } else if (this.lastNonEmptyVariantIndex > this.draggedIndex && this.lastNonEmptyVariantIndex <= index) {
+            this.lastNonEmptyVariantIndex--;
+          } else if (this.lastNonEmptyVariantIndex < this.draggedIndex && this.lastNonEmptyVariantIndex >= index) {
+            this.lastNonEmptyVariantIndex++;
+          }
+          
+          // Re-render with the new order
+          this.renderVariantInputs(this.activeVariantIndex);
+          
+          // Update the editor with the new order
+          this.updateVariantsInEditor();
+        });
+      }
       
       // Input for the variant - placeholder text varies by index
       const placeholder = index === 0 ? 'Original text' : 
