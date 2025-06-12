@@ -20,6 +20,105 @@ export class TextInputModal extends Modal {
   private draggedElement: HTMLElement | null = null;
   private draggedIndex: number = -1;
   private dragOverIndex: number = -1;
+  
+  // Modal dragging properties
+  private isDraggingModal: boolean = false;
+  private modalInitialX: number = 0;
+  private modalInitialY: number = 0;
+  private pointerInitialX: number = 0;
+  private pointerInitialY: number = 0;
+  
+  // Setup draggable header for the modal
+  private setupDraggableHeader(dragHeader: HTMLElement, modalEl: HTMLElement) {
+    // Mouse events for desktop
+    dragHeader.addEventListener('mousedown', (e) => {
+      // Only handle left mouse button
+      if (e.button !== 0) return;
+      
+      // Prevent text selection during drag
+      e.preventDefault();
+      
+      // Start dragging
+      this.isDraggingModal = true;
+      modalEl.addClass('dragging');
+      
+      // Store initial positions
+      const modalRect = modalEl.getBoundingClientRect();
+      this.modalInitialX = modalRect.left;
+      this.modalInitialY = modalRect.top;
+      this.pointerInitialX = e.clientX;
+      this.pointerInitialY = e.clientY;
+      
+      // Setup document-level event listeners
+      document.addEventListener('mousemove', this.handleModalMove);
+      document.addEventListener('mouseup', this.handleModalRelease);
+    });
+    
+    // Touch events for mobile
+    dragHeader.addEventListener('touchstart', (e) => {
+      // Prevent scrolling while dragging
+      e.preventDefault();
+      
+      // Start dragging
+      this.isDraggingModal = true;
+      modalEl.addClass('dragging');
+      
+      // Store initial positions
+      const modalRect = modalEl.getBoundingClientRect();
+      this.modalInitialX = modalRect.left;
+      this.modalInitialY = modalRect.top;
+      this.pointerInitialX = e.touches[0].clientX;
+      this.pointerInitialY = e.touches[0].clientY;
+      
+      // Setup document-level event listeners
+      document.addEventListener('touchmove', this.handleModalMove);
+      document.addEventListener('touchend', this.handleModalRelease);
+    });
+  }
+  
+  // Handle modal movement
+  private handleModalMove = (e: MouseEvent | TouchEvent) => {
+    if (!this.isDraggingModal) return;
+    
+    // Get current pointer position
+    let clientX: number, clientY: number;
+    
+    if (e instanceof MouseEvent) {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    } else { // TouchEvent
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    }
+    
+    // Calculate the distance moved
+    const deltaX = clientX - this.pointerInitialX;
+    const deltaY = clientY - this.pointerInitialY;
+    
+    // Calculate new position
+    const newX = this.modalInitialX + deltaX;
+    const newY = this.modalInitialY + deltaY;
+    
+    // Apply the new position
+    const modalEl = this.modalEl;
+    modalEl.style.left = `${newX}px`;
+    modalEl.style.top = `${newY}px`;
+  }
+  
+  // Handle modal release
+  private handleModalRelease = () => {
+    if (!this.isDraggingModal) return;
+    
+    // Stop dragging
+    this.isDraggingModal = false;
+    this.modalEl.removeClass('dragging');
+    
+    // Remove document-level event listeners
+    document.removeEventListener('mousemove', this.handleModalMove);
+    document.removeEventListener('mouseup', this.handleModalRelease);
+    document.removeEventListener('touchmove', this.handleModalMove);
+    document.removeEventListener('touchend', this.handleModalRelease);
+  }
 
   constructor(
     app: App, 
@@ -65,6 +164,13 @@ export class TextInputModal extends Modal {
     // Add classes for styling
     modalEl.addClass('variant-editor-modal');
     modalEl.addClass('variant-editor-no-dim'); // Class to remove background dimming
+    
+    // Make the modal header draggable
+    const titleEl = modalEl.querySelector('.modal-title');
+    if (titleEl) {
+      titleEl.addClass('variant-editor-draggable-title');
+      this.setupDraggableHeader(titleEl as HTMLElement, modalEl);
+    }
     
     // Create a flex container for all content to support column-reverse when above
     const flexContainer = contentEl.createDiv({
@@ -205,9 +311,10 @@ export class TextInputModal extends Modal {
       modalEl.classList.remove('variant-editor-modal-above');
     }
     
+    // Set the left position
     modalEl.style.left = `${Math.max(0, left)}px`;
   }
-
+    
   /**
    * Updates the variants in the editor without closing the modal
    * Returns the new cursor positions for tracking
