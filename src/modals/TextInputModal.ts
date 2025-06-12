@@ -325,7 +325,8 @@ export class TextInputModal extends Modal {
       .map((v, i) => ({ text: v, originalIndex: i }))
       .filter(v => v.text.length > 0);
     
-    if (nonEmptyVariantsWithIndices.length >= 2) {
+    // Handle both single variant and multiple variants cases
+    if (nonEmptyVariantsWithIndices.length >= 1) {
       // Find the new index of the active variant after filtering
       let newActiveIndex = 0;
       let activeVariantFound = false;
