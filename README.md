@@ -50,19 +50,19 @@ Variant Editor works seamlessly across all platforms that Obsidian supports:
 
 ### Dark Mode
 
-![Dark Mode](https://raw.githubusercontent.com/kunalJa/VariantEditor/main/screenshots/dark_mode.png)
+![Dark Mode](https://raw.githubusercontent.com/kunalJa/VariantEditor/master/screenshots/dark_mode.png)
 
 ### Light Mode
 
-![Light Mode](https://raw.githubusercontent.com/kunalJa/VariantEditor/main/screenshots/light_mode.png)
+![Light Mode](https://raw.githubusercontent.com/kunalJa/VariantEditor/master/screenshots/light_mode.png)
 
 ### See Variants in Context
 
-![See Variants in Context](https://raw.githubusercontent.com/kunalJa/VariantEditor/main/screenshots/has_variant.png)
+![See Variants in Context](https://raw.githubusercontent.com/kunalJa/VariantEditor/master/screenshots/has_variant.png)
 
 ### Commit All Variants
 
-![Commit All](https://raw.githubusercontent.com/kunalJa/VariantEditor/main/screenshots/commands.png)
+![Commit All](https://raw.githubusercontent.com/kunalJa/VariantEditor/master/screenshots/commands.png)
 
 ## How It Works
 
@@ -99,7 +99,7 @@ For example, `{{quick|fast|rapid}}^0` means "quick" is currently selected.
    - You can also use the "Commit All Variants" command to finalize all variants in your document
 
 <video width="100%" controls>
-  <source src="https://github.com/kunalJa/VariantEditor/raw/main/screenshots/feature_showcase.mp4" type="video/mp4">
+  <source src="https://github.com/kunalJa/VariantEditor/raw/master/screenshots/feature_showcase.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
