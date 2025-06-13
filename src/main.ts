@@ -83,7 +83,7 @@ export default class VariantEditor extends Plugin {
       // Register the command with a direct function reference
       this.addCommand({
         id: 'variant-editor-highlight',
-        name: 'Variant Editor: Highlight Word & Sentence',
+        name: 'Create Variant from Selection',
         hotkeys: [{ modifiers: ["Mod"], key: "h" }],
         callback: () => this.highlightSelection()
       });
@@ -91,14 +91,14 @@ export default class VariantEditor extends Plugin {
       // Register the clear command
       this.addCommand({
         id: 'variant-editor-clear-highlight',
-        name: 'Variant Editor: Clear Highlighting',
+        name: 'Clear Highlighting',
         callback: () => this.clearHighlight()
       });
 
       // Register command to commit all variants in selection or document
       this.addCommand({
         id: 'variant-editor-commit-all',
-        name: 'Variant Editor: Commit All Variants in Selection/Document',
+        name: 'Commit All Variants in Selection/Document',
         editorCallback: (editor) => this.commitAllVariants(editor)
       });
 
