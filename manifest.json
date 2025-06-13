@@ -1,9 +1,9 @@
 {
   "id": "variant-editor",
-  "name": "VariantEditor",
+  "name": "Variant Editor",
   "version": "1.0.0",
   "minAppVersion": "1.0.0",
-  "description": "Highlight a word to focus on its sentence while dimming the rest of the content.",
+  "description": "Create variations of words and sentences and compare them, in context, with a single click",
   "author": "Kunal Jain",
   "authorUrl": "https://github.com/kunalJa/VariantEditor",
   "isDesktopOnly": false

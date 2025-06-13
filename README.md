@@ -1,94 +1,116 @@
-# Obsidian Sample Plugin
+# Variant Editor
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/kunalJa/VariantEditor)](https://github.com/kunalJa/VariantEditor/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/kunalJa/VariantEditor/total)](https://github.com/kunalJa/VariantEditor/releases)
+[![License](https://img.shields.io/github/license/kunalJa/VariantEditor)](LICENSE)
+[![Obsidian Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&color=%23483699&label=downloads&query=%24%5B%22variant-editor%22%5D.downloads&url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2Fmaster%2Fcommunity-plugin-stats.json)](https://obsidian.md/plugins?id=variant-editor)
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+## Introduction
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open Sample Modal" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
+![SplashVariant](https://github.com/kunalJa/VariantEditor/raw/master/screenshots/SplashVariant.gif)
 
-## First time developing plugins?
+The Variant Editor plugin revolutionizes how you edit and refine your writing in Obsidian. Writing is an iterative process, and finding the perfect phrasing often requires exploring multiple variations of the same text. This plugin makes that process seamless by allowing you to:
 
-Quick starting guide for new plugin devs:
+- Create multiple variants of words, phrases, or entire sentences
+- View each variant in context with a single click
+- Compare alternatives side-by-side
+- Commit to your favorite variant when you're ready
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `main.ts` to `main.js`.
-- Make changes to `main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+Stop deleting and rewriting the same sentence over and over. With Variant Editor, you can keep all your ideas and variations in one place, making your writing process more efficient and creative.
 
-## Releasing new releases
+## Use
 
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
+1. Open Obsidian Settings
+2. Go to Community Plugins and click "Browse"
+3. Search for "Variant Editor"
+4. Click Install and then Enable
+5. Optionally set the hotkeys for the "Create Variant from Selection" and "Commit All Variants in Selection/Document"
+6. Select a range of text and use the command palette to create variants!
 
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
+## Features
 
-## Adding your plugin to the community plugin list
+### Create and Compare Variants
 
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
+Variant Editor allows you to create multiple versions of text and quickly switch between them to see which one works best in context.
 
-## How to use
+- **Highlight text** and use the command palette to create variants
+- **Click on variants** to see them in context
+- **Drag and reorder** variants to prioritize your favorites
+- **Commit** your chosen variant when you're satisfied
 
-- Clone this repo.
-- Make sure your NodeJS is at least v16 (`node --version`).
-- `npm i` or `yarn` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
+### Cross-Platform Support
 
-## Manually installing the plugin
+Variant Editor works seamlessly across all platforms that Obsidian supports:
 
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
+- Desktop (Windows, macOS, Linux)
+- Mobile (iOS and Android)
+- Tablet (iPad and Android tablets)
 
-## Improve code quality with eslint (optional)
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code. 
-- To use eslint with this project, make sure to install eslint from terminal:
-  - `npm install -g eslint`
-- To use eslint to analyze this project use this command:
-  - `eslint main.ts`
-  - eslint will then create a report with suggestions for code improvement by file and line number.
-- If your source code is in a folder, such as `src`, you can use eslint with this command to analyze all files in that folder:
-  - `eslint .\src\`
+## Screenshots
 
-## Funding URL
+### Dark Mode
 
-You can include funding URLs where people who use your plugin can financially support it.
+![Dark Mode](https://raw.githubusercontent.com/kunalJa/VariantEditor/main/screenshots/dark_mode.png)
 
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
+### Light Mode
 
-```json
-{
-    "fundingUrl": "https://buymeacoffee.com"
-}
+![Light Mode](https://raw.githubusercontent.com/kunalJa/VariantEditor/main/screenshots/light_mode.png)
+
+### See Variants in Context
+
+![See Variants in Context](https://raw.githubusercontent.com/kunalJa/VariantEditor/main/screenshots/has_variant.png)
+
+### Commit All Variants
+
+![Commit All](https://raw.githubusercontent.com/kunalJa/VariantEditor/main/screenshots/commands.png)
+
+## How It Works
+
+### Variant Syntax
+
+Variant Editor uses a special syntax to store variants in your Markdown files:
+
+```
+{{variant1|variant2|variant3}}^INDEX
 ```
 
-If you have multiple URLs, you can also do:
+Where:
+- Each variant is separated by a pipe character (`|`)
+- `INDEX` is the currently selected variant (0-based)
 
-```json
-{
-    "fundingUrl": {
-        "Buy Me a Coffee": "https://buymeacoffee.com",
-        "GitHub Sponsor": "https://github.com/sponsors",
-        "Patreon": "https://www.patreon.com/"
-    }
-}
-```
+For example, `{{quick|fast|rapid}}^0` means "quick" is currently selected.
 
-## API Documentation
+### Usage
 
-See https://github.com/obsidianmd/obsidian-api
+1. **Create Variants**:
+   - Highlight text you want to create variants for
+   - Use the command palette (`Ctrl/Cmd+P`) and select "Create Variants"
+   - Enter multiple variants in the modal that appears
+   - Drag to reorder variants if needed
+   - Click "Update" to save your variants
+
+2. **View Variants**:
+   - Click on any variant in your document to see it in context
+   - The active variant will be highlighted with a rainbow border
+
+3. **Commit Variants**:
+   - When you're satisfied with a variant, click "Commit" in the modal
+   - This will replace the variant syntax with the selected text
+   - You can also use the "Commit All Variants" command to finalize all variants in your document
+
+<video width="100%" controls>
+  <source src="https://github.com/kunalJa/VariantEditor/raw/main/screenshots/feature_showcase.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+
+### Note on Sharing
+
+If you share your Markdown files with others who don't have the Variant Editor plugin, or turn the plugin off, you'll see the raw variant syntax which looks like `{{variant1|variant2|variant3}}^INDEX`. You can also manually create variants by using this syntax.
+
+### Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+[MIT](LICENSE)

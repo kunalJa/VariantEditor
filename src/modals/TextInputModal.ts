@@ -298,12 +298,17 @@ export class TextInputModal extends Modal {
         let top = lineRect.bottom + padding;
         let positionAbove = false;
 
-        // Make sure the modal doesn't go off the bottom of the screen
-        const viewportHeight = window.innerHeight;
-        if (top + modalRect.height + 114 > viewportHeight) {
+        // Use a fixed maximum height for the modal (455px) plus some padding
+        const MAX_MODAL_HEIGHT = 455;
+        const BOTTOM_PADDING = 50;
+        
+        // Check if there's enough space below the line
+        const spaceBelow = window.innerHeight - lineRect.bottom;
+        
+        // If not enough space below, position above
+        if (spaceBelow < MAX_MODAL_HEIGHT + BOTTOM_PADDING) {
             // Position above the line instead
-            // We want the bottom of the modal to be at the top of the line
-            top = Math.max(10, lineRect.top - modalRect.height - 150);
+            top = Math.max(10, lineRect.top - MAX_MODAL_HEIGHT - 20);
             positionAbove = true;
         }
 
