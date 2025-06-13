@@ -98,10 +98,7 @@ For example, `{{quick|fast|rapid}}^0` means "quick" is currently selected.
    - This will replace the variant syntax with the selected text
    - You can also use the "Commit All Variants" command to finalize all variants in your document
 
-<video width="100%" controls>
-  <source src="https://github.com/kunalJa/VariantEditor/raw/master/screenshots/feature_showcase.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+https://github.com/kunalJa/VariantEditor/raw/master/screenshots/feature_showcase.mp4
 
 ### Note on Sharing
 
