@@ -36,10 +36,11 @@
 }
 
 /* Make highlighted text stand out even when selected */
-.cm-line .cm-selectionBackground ~ .fh-highlight,
-.cm-line .cm-selectionBackground + .fh-highlight,
+.cm-line .cm-selectionBackground~.fh-highlight,
+.cm-line .cm-selectionBackground+.fh-highlight,
 .cm-line .fh-highlight.cm-selectionBackground {
-  background-color: rgba(255, 207, 64, 0.6) !important; /* Lighter yellow that shows through selection */
+  background-color: rgba(255, 207, 64, 0.6) !important;
+  /* Lighter yellow that shows through selection */
   mix-blend-mode: normal;
   opacity: 1;
 }
@@ -160,7 +161,8 @@
   inset: -2px;
   padding: 2px;
   background: linear-gradient(135deg, #8b5cf6, #ec4899, #f97316);
-  border-radius: 10px; /* Match the row border-radius + 2px for the inset */
+  border-radius: 10px;
+  /* Match the row border-radius + 2px for the inset */
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   mask-composite: exclude;
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -305,7 +307,8 @@
 /* Special handling for active rows with drag indicators */
 .variant-editor-row-active.drag-over-top::after,
 .variant-editor-row-active.drag-over-bottom::after {
-  z-index: 20; /* Higher z-index to appear above the rainbow border */
+  z-index: 20;
+  /* Higher z-index to appear above the rainbow border */
 }
 
 
@@ -353,12 +356,16 @@
 .variant-editor-button {
   min-width: 144px;
   max-width: 216px;
-  padding: 10px 24px !important; /* Reduced vertical padding to make buttons thinner */
-  border-radius: 8px !important; /* Match variant row border-radius */
+  padding: 10px 24px !important;
+  /* Reduced vertical padding to make buttons thinner */
+  border-radius: 8px !important;
+  /* Match variant row border-radius */
   font-size: 16px !important;
   font-weight: 600 !important;
-  transition: all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1) !important; /* Improved animation curve */
-  border: 1px solid #333 !important; /* Match variant row border */
+  transition: all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1) !important;
+  /* Improved animation curve */
+  border: 1px solid #333 !important;
+  /* Match variant row border */
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
   text-align: center !important;
   color: white !important;
@@ -367,13 +374,15 @@
   align-items: center !important;
   justify-content: center !important;
   gap: 10px !important;
-  height: 42px !important; /* Reduced height by 10px */
+  height: 42px !important;
+  /* Reduced height by 10px */
 }
 
 
 
 .variant-editor-commit-button {
-  background-color: #7E6BDC !important; /* Obsidian purple */
+  background-color: #7E6BDC !important;
+  /* Obsidian purple */
   color: white !important;
 }
 
@@ -404,7 +413,8 @@
 /* Style the variant editor modal */
 .variant-editor-modal {
   max-width: 90vw !important;
-  width: 460px !important; /* Reduced from 500px to 460px (40px less) */
+  width: 460px !important;
+  /* Reduced from 500px to 460px (40px less) */
   max-height: 80vh !important;
   padding: 0;
   overflow-y: auto !important;
@@ -461,7 +471,7 @@
 }
 
 /* Remove background dimming for variant editor modal */
-.variant-editor-no-dim ~ .modal-bg {
+.variant-editor-no-dim~.modal-bg {
   background-color: transparent !important;
   backdrop-filter: none !important;
 }
