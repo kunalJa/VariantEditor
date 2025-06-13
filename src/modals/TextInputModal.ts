@@ -209,9 +209,27 @@ export class TextInputModal extends Modal {
       cls: 'variant-editor-buttons'
     });
     
+    // Define whether we're editing existing variants or creating new ones
+    const hasMultipleVariants = this.variants.length > 1;
+    
+    // Create/Update variants button
+    const updateButton = new ButtonComponent(buttonsContainer)
+      .setButtonText(hasMultipleVariants ? 'Update' : 'Create')
+      .setCta()
+      .onClick(() => {
+        this.updateVariantsInEditor();
+        this.close();
+      });
+      
+    // Add icon to update button
+    const updateIcon = document.createElement('span');
+    updateIcon.innerHTML = '👍🏾'; // Brown-skinned thumbs up
+    updateButton.buttonEl.prepend(updateIcon);
+    updateButton.buttonEl.addClass('variant-editor-button');
+    
     // Commit active variant button
-    new ButtonComponent(buttonsContainer)
-      .setButtonText('Commit Active Variant')
+    const commitButton = new ButtonComponent(buttonsContainer)
+      .setButtonText('Commit')
       .onClick(() => {
         // Filter out empty variants and track their original indices
         const nonEmptyVariantsWithIndices = this.variants
@@ -226,21 +244,26 @@ export class TextInputModal extends Modal {
           // Pass the active variant text directly with commitVariant flag
           this.onSubmit(activeVariant.text, undefined, true);
         }
-      })
-      .buttonEl.addClass('variant-editor-button', 'variant-editor-commit-button');
+      });
     
-    // Define whether we're editing existing variants or creating new ones
-    const hasMultipleVariants = this.variants.length > 1;
+    // Add icon to commit button
+    const commitIcon = document.createElement('span');
+    commitIcon.innerHTML = '✓';
+    commitButton.buttonEl.prepend(commitIcon);
+    commitButton.buttonEl.addClass('variant-editor-button', 'variant-editor-commit-button');
     
-    // Create/Update variants button
-    new ButtonComponent(buttonsContainer)
-      .setButtonText(hasMultipleVariants ? 'Update Variants' : 'Create Variants')
-      .setCta()
-      .onClick(() => {
-        this.updateVariantsInEditor();
-        this.close();
-      })
-      .buttonEl.addClass('variant-editor-button');
+    // Add tooltips to the buttons
+    if (buttonsContainer.children[0] instanceof HTMLElement) {
+      setTooltip(buttonsContainer.children[0] as HTMLElement, hasMultipleVariants ? 'Save all variants' : 'Create variants', {
+        placement: 'bottom'
+      });
+    }
+    
+    if (buttonsContainer.children[1] instanceof HTMLElement) {
+      setTooltip(buttonsContainer.children[1] as HTMLElement, 'Replace with active variant only', {
+        placement: 'bottom'
+      });
+    }
   }
   
   /**
@@ -529,16 +552,33 @@ export class TextInputModal extends Modal {
           // Only process if we have a dragged element
           if (!this.draggedElement || this.draggedIndex === index) return;
           
-          // Add visual indicator
-          variantRow.classList.add('drag-over');
+          // Remove all drag indicators from all rows
+          const allRows = this.variantContainer.querySelectorAll('.variant-editor-row');
+          allRows.forEach(row => {
+            row.classList.remove('drag-over-top');
+            row.classList.remove('drag-over-bottom');
+          });
           
-          // Update the dragOverIndex
-          this.dragOverIndex = index;
+          // Determine if we're in the top or bottom half of the row
+          const rect = variantRow.getBoundingClientRect();
+          const mouseY = e.clientY;
+          const rowMiddleY = rect.top + rect.height / 2;
+          
+          if (mouseY < rowMiddleY) {
+            // Top half - show indicator above this row
+            variantRow.classList.add('drag-over-top');
+            this.dragOverIndex = index;
+          } else {
+            // Bottom half - show indicator below this row
+            variantRow.classList.add('drag-over-bottom');
+            this.dragOverIndex = index + 1;
+          }
         });
         
         // Drag leave event
         variantRow.addEventListener('dragleave', () => {
-          variantRow.classList.remove('drag-over');
+          variantRow.classList.remove('drag-over-top');
+          variantRow.classList.remove('drag-over-bottom');
         });
         
         // Drop event
@@ -547,35 +587,47 @@ export class TextInputModal extends Modal {
           e.stopPropagation();
           
           // Only process if we have a dragged element
-          if (!this.draggedElement || this.draggedIndex === index) return;
+          if (!this.draggedElement || this.draggedIndex === this.dragOverIndex) return;
           
-          // Remove visual indicator
-          variantRow.classList.remove('drag-over');
+          // Remove visual indicators
+          variantRow.classList.remove('drag-over-top');
+          variantRow.classList.remove('drag-over-bottom');
           
           // Move the variant in the array
           const draggedVariant = this.variants[this.draggedIndex];
+          
+          // Get the target index (this.dragOverIndex was set in dragover)
+          const targetIndex = this.dragOverIndex;
+          
+          // Adjust targetIndex if dragging from above to below
+          let adjustedTargetIndex = targetIndex;
+          if (this.draggedIndex < targetIndex) {
+            // When dragging from above to below, we need to adjust the target index
+            // because removing the original item shifts all indexes down by 1
+            adjustedTargetIndex--;
+          }
           
           // Remove the dragged variant
           this.variants.splice(this.draggedIndex, 1);
           
           // Insert at the new position
-          this.variants.splice(index, 0, draggedVariant);
+          this.variants.splice(adjustedTargetIndex, 0, draggedVariant);
           
           // Update active index if needed
           if (this.activeVariantIndex === this.draggedIndex) {
-            this.activeVariantIndex = index;
-          } else if (this.activeVariantIndex > this.draggedIndex && this.activeVariantIndex <= index) {
+            this.activeVariantIndex = adjustedTargetIndex;
+          } else if (this.activeVariantIndex > this.draggedIndex && this.activeVariantIndex <= adjustedTargetIndex) {
             this.activeVariantIndex--;
-          } else if (this.activeVariantIndex < this.draggedIndex && this.activeVariantIndex >= index) {
+          } else if (this.activeVariantIndex < this.draggedIndex && this.activeVariantIndex >= adjustedTargetIndex) {
             this.activeVariantIndex++;
           }
           
           // Update lastNonEmptyVariantIndex if needed
           if (this.lastNonEmptyVariantIndex === this.draggedIndex) {
-            this.lastNonEmptyVariantIndex = index;
-          } else if (this.lastNonEmptyVariantIndex > this.draggedIndex && this.lastNonEmptyVariantIndex <= index) {
+            this.lastNonEmptyVariantIndex = adjustedTargetIndex;
+          } else if (this.lastNonEmptyVariantIndex > this.draggedIndex && this.lastNonEmptyVariantIndex <= adjustedTargetIndex) {
             this.lastNonEmptyVariantIndex--;
-          } else if (this.lastNonEmptyVariantIndex < this.draggedIndex && this.lastNonEmptyVariantIndex >= index) {
+          } else if (this.lastNonEmptyVariantIndex < this.draggedIndex && this.lastNonEmptyVariantIndex >= adjustedTargetIndex) {
             this.lastNonEmptyVariantIndex++;
           }
           
@@ -605,6 +657,60 @@ export class TextInputModal extends Modal {
       
       // Set the text content
       variantInput.textContent = variant;
+      
+      // Add keyboard navigation with arrow keys
+      variantInput.addEventListener('keydown', (e) => {
+        // Handle arrow key navigation
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+          e.preventDefault(); // Prevent default scrolling behavior
+          
+          // Calculate the target index based on arrow key direction
+          const targetIndex = e.key === 'ArrowUp' 
+            ? Math.max(0, index - 1) // Move up (minimum index is 0)
+            : Math.min(this.variants.length - 1, index + 1); // Move down (maximum is last variant)
+          
+          // Only proceed if we're actually moving to a different row
+          if (targetIndex !== index) {
+            // Set the new active variant index
+            this.activeVariantIndex = targetIndex;
+            
+            // If the target variant has content, update the last non-empty variant index
+            if (this.variants[targetIndex].trim().length > 0 || targetIndex === 0) {
+              this.lastNonEmptyVariantIndex = targetIndex;
+            }
+            
+            // Focus the target input
+            const targetRow = this.variantContainer.querySelectorAll('.variant-editor-row')[targetIndex];
+            if (targetRow) {
+              const targetInput = targetRow.querySelector('.variant-editor-input');
+              if (targetInput) {
+                // Update visual active state
+                const currentActive = this.variantContainer.querySelector('.variant-editor-row-active');
+                if (currentActive) {
+                  currentActive.removeClass('variant-editor-row-active');
+                }
+                targetRow.addClass('variant-editor-row-active');
+                
+                // Focus the target input
+                (targetInput as HTMLElement).focus();
+                
+                // Place cursor at the end of the text
+                const range = document.createRange();
+                const sel = window.getSelection();
+                range.selectNodeContents(targetInput as Node);
+                range.collapse(false); // Collapse to end
+                sel?.removeAllRanges();
+                sel?.addRange(range);
+                
+                // Only update the editor if the selected variant has content
+                if (this.variants[targetIndex].trim().length > 0 || targetIndex === 0) {
+                  this.updateVariantsInEditor();
+                }
+              }
+            }
+          }
+        }
+      });
       
       // Add click handler specifically for the contenteditable div
       variantInput.addEventListener('click', (e) => {
