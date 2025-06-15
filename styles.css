@@ -68,7 +68,7 @@
 /* Show a small indicator for hidden parts when hovered */
 .variant-syntax-start:hover,
 .variant-syntax-end:hover,
-.variant-inactive-option:hover {
+.variant-syntax-inactive-option:hover {
   background-color: rgba(121, 184, 255, 0.3);
 }
 
@@ -311,7 +311,6 @@
   /* Higher z-index to appear above the rainbow border */
 }
 
-
 /* Delete button styling */
 .variant-editor-delete-button {
   background: none !important;
@@ -378,8 +377,6 @@
   /* Reduced height by 10px */
 }
 
-
-
 .variant-editor-commit-button {
   background-color: #7E6BDC !important;
   /* Obsidian purple */
@@ -422,6 +419,11 @@
   border: 1px solid var(--background-modifier-border) !important;
   border-radius: 12px !important;
   background-color: var(--background-primary) !important;
+  position: fixed !important;
+  left: var(--modal-left, 50%) !important;
+  top: var(--modal-top, 50%) !important;
+  bottom: var(--modal-bottom, auto) !important;
+  transform: var(--modal-transform, translate(-50%, -50%)) !important;
 }
 
 /* Style the modal title */
@@ -458,6 +460,22 @@
   user-select: none;
 }
 
+.variant-editor-modal-hidden {
+  opacity: 0;
+  transition: opacity 150ms ease-in-out;
+}
+
+.variant-editor-modal-visible {
+  opacity: 1;
+  transition: opacity 150ms ease-in-out;
+}
+
+.variant-editor-textarea:focus {
+  outline: none;
+  border-color: var(--interactive-accent);
+  box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), 0.2);
+}
+
 /* When modal is positioned above the highlighted line, we no longer reorder elements */
 .variant-editor-modal-above .variant-editor-flex-container {
   /* Keep normal flow, just position the modal differently */
@@ -475,10 +493,4 @@ body:has(.variant-editor-modal) .modal-bg {
   background-color: transparent !important;
   backdrop-filter: none !important;
   opacity: 0 !important;
-}
-
-.variant-editor-textarea:focus {
-  outline: none;
-  border-color: var(--interactive-accent);
-  box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), 0.2);
 }

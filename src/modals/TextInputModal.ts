@@ -101,8 +101,8 @@ export class TextInputModal extends Modal {
 
         // Apply the new position
         const modalEl = this.modalEl;
-        modalEl.style.left = `${newX}px`;
-        modalEl.style.top = `${newY}px`;
+        modalEl.style.setProperty('--modal-left', `${newX}px`);
+        modalEl.style.setProperty('--modal-top', `${newY}px`);
     }
 
     // Handle modal release
@@ -154,8 +154,7 @@ export class TextInputModal extends Modal {
 
         // Hide the modal initially to prevent flashing
         if (this.cursorPosition) {
-            modalEl.style.opacity = '0';
-            modalEl.style.transition = 'opacity 150ms ease-in-out';
+            modalEl.addClass('variant-editor-modal-hidden');
         }
 
         // Set the title using Obsidian's built-in functionality
@@ -164,6 +163,7 @@ export class TextInputModal extends Modal {
         // Add classes for styling
         modalEl.addClass('variant-editor-modal');
         modalEl.addClass('variant-editor-no-dim'); // Class to remove background dimming
+        modalEl.addClass('variant-editor-modal-dynamic'); // Add dynamic positioning class
 
         // Make the modal header draggable
         const titleEl = modalEl.querySelector('.modal-title');
@@ -183,7 +183,8 @@ export class TextInputModal extends Modal {
             queueMicrotask(() => {
                 this.positionModalRelativeToCursor(modalEl);
                 // Fade in the modal after positioning
-                modalEl.style.opacity = '1';
+                modalEl.removeClass('variant-editor-modal-hidden');
+                modalEl.addClass('variant-editor-modal-visible');
             });
         }
 
@@ -324,23 +325,22 @@ export class TextInputModal extends Modal {
         }
 
         // Apply the position
-        modalEl.style.position = 'fixed';
-        modalEl.style.transform = 'none'; // Remove default centering
+        modalEl.style.setProperty('--modal-transform', 'none');
 
         if (positionAbove) {
             // When positioned above, set explicit top position
-            modalEl.style.top = `${Math.max(0, top)}px`;
-            modalEl.style.bottom = 'auto';
-            modalEl.classList.add('variant-editor-modal-above');
+            modalEl.style.setProperty('--modal-top', `${Math.max(0, top)}px`);
+            modalEl.style.setProperty('--modal-bottom', 'auto');
+            modalEl.addClass('variant-editor-modal-above');
         } else {
             // When positioned below, set explicit top position
-            modalEl.style.top = `${Math.max(0, top)}px`;
-            modalEl.style.bottom = 'auto';
-            modalEl.classList.remove('variant-editor-modal-above');
+            modalEl.style.setProperty('--modal-top', `${Math.max(0, top)}px`);
+            modalEl.style.setProperty('--modal-bottom', 'auto');
+            modalEl.removeClass('variant-editor-modal-above');
         }
 
         // Set the left position
-        modalEl.style.left = `${Math.max(0, left)}px`;
+        modalEl.style.setProperty('--modal-left', `${Math.max(0, left)}px`);
     }
 
     /**
