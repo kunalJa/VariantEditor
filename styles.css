@@ -471,9 +471,7 @@
 }
 
 /* Remove background dimming for variant editor modal */
-.variant-editor-no-dim~.modal-bg,
-.modal-container .variant-editor-modal~.modal-bg,
-div.modal-bg {
+body:has(.variant-editor-modal) .modal-bg {
   background-color: transparent !important;
   backdrop-filter: none !important;
   opacity: 0 !important;
