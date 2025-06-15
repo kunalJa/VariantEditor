@@ -84,7 +84,6 @@ export default class VariantEditor extends Plugin {
       this.addCommand({
         id: 'variant-editor-highlight',
         name: 'Create Variant from Selection',
-        hotkeys: [{ modifiers: ["Mod"], key: "h" }],
         callback: () => this.highlightSelection()
       });
 
