@@ -223,7 +223,7 @@ export class TextInputModal extends Modal {
 
         // Add icon to update button
         const updateIcon = document.createElement('span');
-        updateIcon.innerHTML = '👍🏾'; // Brown-skinned thumbs up
+        updateIcon.textContent = '👍🏾'; // Brown-skinned thumbs up
         updateButton.buttonEl.prepend(updateIcon);
         updateButton.buttonEl.addClass('variant-editor-button');
 
@@ -248,7 +248,7 @@ export class TextInputModal extends Modal {
 
         // Add icon to commit button
         const commitIcon = document.createElement('span');
-        commitIcon.innerHTML = '✓';
+        commitIcon.textContent = '✓';
         commitButton.buttonEl.prepend(commitIcon);
         commitButton.buttonEl.addClass('variant-editor-button', 'variant-editor-commit-button');
 
@@ -498,7 +498,7 @@ export class TextInputModal extends Modal {
                     'aria-label': 'Reorder variants'
                 }
             });
-            dragHandle.innerHTML = '≡';
+            dragHandle.textContent = '≡';
 
             // Use Obsidian's setTooltip API to position tooltip above the button
             setTooltip(dragHandle, 'Reorder variants', {
@@ -809,7 +809,7 @@ export class TextInputModal extends Modal {
                         'aria-label': 'Delete variant'
                     }
                 });
-                deleteButton.innerHTML = '×';
+                deleteButton.textContent = '×';
 
                 // Use Obsidian's setTooltip API to position tooltip above the button
                 setTooltip(deleteButton, 'Delete variant', {
