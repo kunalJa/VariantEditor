@@ -158,7 +158,7 @@ export class TextInputModal extends Modal {
         }
 
         // Set the title using Obsidian's built-in functionality
-        this.setTitle('Manage Variants');
+        this.setTitle('Manage variants');
 
         // Add classes for styling
         modalEl.addClass('variant-editor-modal');
