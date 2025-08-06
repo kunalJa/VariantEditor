@@ -1,7 +1,7 @@
 {
   "id": "variant-editor",
   "name": "Variant Editor",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "minAppVersion": "1.0.0",
   "description": "Create variations of words and sentences and compare them, in context, with a single click",
   "author": "Kunal Jain",
