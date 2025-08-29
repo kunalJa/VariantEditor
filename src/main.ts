@@ -112,6 +112,29 @@ export default class VariantEditor extends Plugin {
         callback: () => this.highlightSelection()
       });
 
+      // Register the right-click context menu for creating variants
+      this.registerEvent(
+        this.app.workspace.on("editor-menu", (menu, editor, view) => {
+          // Only show menu item if text is selected
+          const selection = editor.listSelections()[0];
+          const hasSelection = selection && (
+            selection.anchor.line !== selection.head.line ||
+            selection.anchor.ch !== selection.head.ch
+          );
+          
+          if (hasSelection) {
+            menu.addItem((item) => {
+              item
+                .setTitle("Create variant from selection")
+                .setIcon("lucide-banana")
+                .onClick(() => {
+                  this.highlightSelection();
+                });
+            });
+          }
+        })
+      );
+
       // Register the clear command
       this.addCommand({
         id: 'variant-editor-clear-highlight',
