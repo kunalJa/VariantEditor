@@ -34,21 +34,48 @@ class ClickableVariantWidget extends WidgetType {
       e.preventDefault();
       e.stopPropagation();
 
-      // Select the entire variant in the editor
+      // Instead of using potentially stale positions, find the variant in the current document
       const state = view.state;
       const doc = state.doc;
-
-      // Find the positions in the current state
-      const from = this.from;
-      const to = this.to;
-
-      // Set the selection to the entire variant
-      view.dispatch({
-        selection: { anchor: from, head: to }
-      });
-
-      // Call the highlightSelection method
-      this.plugin.highlightSelection();
+      const docText = doc.toString();
+      
+      // Find the variant pattern in the document
+      const variantRegex = new RegExp(this.fullVariant.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+      let match;
+      let variantFound = false;
+      
+      while ((match = variantRegex.exec(docText)) !== null) {
+        const matchStart = match.index;
+        const matchEnd = matchStart + match[0].length;
+        
+        // Check if this match is around the expected position (within reasonable range)
+        if (Math.abs(matchStart - this.from) < 100) { // Allow some drift
+          // Set the selection to the entire variant
+          view.dispatch({
+            selection: { anchor: matchStart, head: matchEnd }
+          });
+          
+          variantFound = true;
+          break;
+        }
+      }
+      
+      if (!variantFound) {
+        // Fallback: try to use original positions but validate they're reasonable
+        if (this.from >= 0 && this.to <= doc.length && this.from < this.to) {
+          view.dispatch({
+            selection: { anchor: this.from, head: this.to }
+          });
+          variantFound = true;
+        }
+      }
+      
+      if (variantFound) {
+        // Call the highlightSelection method
+        this.plugin.highlightSelection();
+      } else {
+        console.warn('Could not find variant in document:', this.fullVariant);
+      }
     });
 
     return span;
@@ -62,17 +89,15 @@ class ClickableVariantWidget extends WidgetType {
 }
 
 export default class VariantEditor extends Plugin {
-  // Track active line for dimming
-  private activeLine: number | null = null;
-  // Store the extension to update it later
-  private dimExtension: Extension | null = null;
-  // Track previous cursor line
-  private previousCursorLine: number | null = null;
-  // Store the selected text for highlighting
-  private selectedText: string | null = null;
-  // Store the selection range
-  private selectionFrom: number | null = null;
-  private selectionTo: number | null = null;
+  // Track active line for dimming - now per editor
+  private activeEditorDimming = new Map<EditorView, {
+    activeLine: number | null;
+    selectedText: string | null;
+    selectionFrom: number | null;
+    selectionTo: number | null;
+    previousCursorLine: number | null;
+    dimExtension: Extension | null;
+  }>();
 
   async onload() {
     try {
@@ -101,12 +126,9 @@ export default class VariantEditor extends Plugin {
         editorCallback: (editor) => this.commitAllVariants(editor)
       });
 
-      // Register the editor extension for dimming
-      this.dimExtension = this.createDimExtension();
-
-      // Register the editor extension for variant indicators
+      // Register the editor extensions
       this.registerEditorExtension(this.createVariantIndicatorExtension());
-      this.registerEditorExtension(this.dimExtension);
+      this.registerEditorExtension(this.createGlobalDimExtension());
     } catch (e) {
       console.error('Error during initialization:', e);
     }
@@ -114,6 +136,8 @@ export default class VariantEditor extends Plugin {
 
   onunload() {
     this.clearHighlight();
+    // Clean up all editor-specific dimming
+    this.activeEditorDimming.clear();
   }
 
   /**
@@ -220,68 +244,89 @@ export default class VariantEditor extends Plugin {
     );
   }
 
-  private createDimExtension(): Extension {
-    // Get reference to the plugin instance for the view plugin to use
+  /**
+   * Creates a global extension that only dims lines in the editor that has active variant editing
+   */
+  private createGlobalDimExtension(): Extension {
+    // Get reference to the plugin instance
     const pluginInstance = this;
 
     // Create a state field to track cursor position changes
-    const cursorTrackingField = StateField.define({
+    const cursorTrackingField = StateField.define<{ previousCursorLine: number | null }>({
       create(state) {
-        return null;
+        return { previousCursorLine: null };
       },
       update(value, transaction) {
         if (transaction.selection) {
           const selection = transaction.newSelection.main;
           const currentLine = transaction.newDoc.lineAt(selection.head).number;
-
-          // Store the current cursor line
-          if (pluginInstance.previousCursorLine === null) {
-            pluginInstance.previousCursorLine = currentLine;
-          }
-
-          // If we have an active line and cursor moved to a different line, clear dimming
-          if (pluginInstance.activeLine !== null &&
-            currentLine !== pluginInstance.activeLine &&
-            currentLine !== pluginInstance.previousCursorLine) {
-            // Schedule clearing on next tick to avoid update-during-update
-            setTimeout(() => {
-              pluginInstance.clearHighlight();
-            }, 0);
-          }
-
-          // Update previous cursor line
-          pluginInstance.previousCursorLine = currentLine;
+          
+          // We'll handle cursor tracking in the view plugin where we have access to the EditorView
+          return { previousCursorLine: currentLine };
         }
         return value;
       }
     });
 
-    // Create the view plugin for decorations
+    // Create the view plugin for decorations that only applies to editors with active dimming
     const dimPlugin = ViewPlugin.fromClass(
       class implements PluginValue {
         decorations: DecorationSet;
+        private lastCursorLine: number | null = null;
+        private view: EditorView;
 
         constructor(view: EditorView) {
+          this.view = view;
           this.decorations = this.buildDecorations(view);
         }
 
         update(update: ViewUpdate) {
-          // Update decorations if needed
-          if (update.docChanged || update.viewportChanged || pluginInstance.activeLine !== null) {
-            this.decorations = this.buildDecorations(update.view);
+          // Handle cursor movement for clearing dimming
+          if (update.selectionSet) {
+            const currentLine = update.state.doc.lineAt(update.state.selection.main.head).number;
+            const editorState = pluginInstance.activeEditorDimming.get(update.view);
+            
+            if (editorState && editorState.activeLine !== null) {
+              // If cursor moved to a different line than the active line, clear dimming
+              if (currentLine !== editorState.activeLine && 
+                  currentLine !== this.lastCursorLine) {
+                setTimeout(() => {
+                  pluginInstance.clearHighlightForEditor(update.view);
+                }, 0);
+              }
+            }
+            
+            this.lastCursorLine = currentLine;
+          }
+          
+          // Always update decorations to check if this editor should have dimming
+          this.decorations = this.buildDecorations(update.view);
+        }
+
+        destroy() {
+          // Clean up editor state when the view is destroyed (e.g., tab closed)
+          // We need to find which editor this view corresponds to and remove its state
+          for (const [editorView, editorState] of pluginInstance.activeEditorDimming) {
+            if (editorView === this.view) {
+              pluginInstance.activeEditorDimming.delete(editorView);
+              break;
+            }
           }
         }
 
         buildDecorations(view: EditorView): DecorationSet {
-          // If no active line is set, return empty decorations
-          if (pluginInstance.activeLine === null) {
+          // Get editor-specific state - only apply dimming if this editor has active variant editing
+          const editorState = pluginInstance.activeEditorDimming.get(view);
+          
+          // If no editor state or no active line is set for this editor, return empty decorations
+          if (!editorState || editorState.activeLine === null) {
             return Decoration.none;
           }
 
           // Collect all decorations first, then sort and add them
           const allDecorations = [];
-          const activeLine = pluginInstance.activeLine;
-
+          const activeLine = editorState.activeLine;
+          
           // First pass: Collect line decorations for all lines except the active one
           for (let i = 1; i <= view.state.doc.lines; i++) {
             if (i !== activeLine) {
@@ -301,12 +346,12 @@ export default class VariantEditor extends Plugin {
             }
           }
 
-          // Second pass: Collect highlight decoration only for the currently selected text
-          if (pluginInstance.selectedText && activeLine <= view.state.doc.lines && pluginInstance.selectionFrom !== null && pluginInstance.selectionTo !== null) {
+          // Second pass: Collect highlight decoration only for the currently selected text in this editor
+          if (editorState.selectedText && activeLine <= view.state.doc.lines && editorState.selectionFrom !== null && editorState.selectionTo !== null) {
             try {
               // Use the exact selection positions instead of searching for all instances
-              const start = pluginInstance.selectionFrom;
-              const end = pluginInstance.selectionTo;
+              const start = editorState.selectionFrom;
+              const end = editorState.selectionTo;
 
               allDecorations.push({
                 from: start,
@@ -320,29 +365,22 @@ export default class VariantEditor extends Plugin {
             }
           }
 
-          // Sort all decorations by from position
+          // Sort decorations by position and build the decoration set
           allDecorations.sort((a, b) => a.from - b.from);
 
-          // Now add them to the builder in sorted order
           const builder = new RangeSetBuilder<Decoration>();
           for (const { from, to, decoration } of allDecorations) {
-            try {
-              builder.add(from, to, decoration);
-            } catch (e) {
-              console.error(`Error adding decoration at position ${from}:`, e);
-            }
+            builder.add(from, to, decoration);
           }
 
           return builder.finish();
         }
-        destroy() { }
       },
       {
-        decorations: (instance) => instance.decorations
+        decorations: v => v.decorations
       }
     );
 
-    // Return both extensions
     return [cursorTrackingField, dimPlugin];
   }
 
@@ -374,8 +412,6 @@ export default class VariantEditor extends Plugin {
 
       let selectedText = editor.getRange(from, to);
       if (!selectedText) return;
-
-      this.selectedText = selectedText;
 
       // Setup for variant editing
       let initialText = selectedText;
@@ -430,31 +466,44 @@ export default class VariantEditor extends Plugin {
         new Notice('Editing existing variant');
       }
 
+      // Get or create editor-specific state
+      const editorView = (view.editor as any).cm;
+      if (!this.activeEditorDimming.has(editorView)) {
+        this.activeEditorDimming.set(editorView, {
+          activeLine: null,
+          selectedText: null,
+          selectionFrom: null,
+          selectionTo: null,
+          previousCursorLine: null,
+          dimExtension: null
+        });
+      }
+      
+      const editorState = this.activeEditorDimming.get(editorView)!;
+
       // Set active line for dimming
-      this.activeLine = from.line + 1;
+      editorState.activeLine = from.line + 1;
 
       // Store the selected text for highlighting - make sure we use the potentially updated selection
-      this.selectedText = selectedText;
+      editorState.selectedText = selectedText;
 
       // Convert EditorPosition to absolute character positions for highlighting
-      const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-      if (activeView) {
-        // Get the editor view
-        const editorView = (activeView.editor as any).cm;
-        if (editorView) {
-          try {
-            // Convert line/ch positions to absolute character positions
-            const fromPos = editorView.state.doc.line(from.line + 1).from + from.ch;
-            const toPos = editorView.state.doc.line(to.line + 1).from + to.ch;
+      if (editorView) {
+        try {
+          // Convert line/ch positions to absolute character positions
+          const fromPos = editorView.state.doc.line(from.line + 1).from + from.ch;
+          const toPos = editorView.state.doc.line(to.line + 1).from + to.ch;
 
-            // Store the exact selection range for highlighting
-            this.selectionFrom = fromPos;
-            this.selectionTo = toPos;
-          } catch (e) {
-            console.error('Error converting positions:', e);
-          }
+          // Store the exact selection range for highlighting
+          editorState.selectionFrom = fromPos;
+          editorState.selectionTo = toPos;
+        } catch (e) {
+          console.error('Error converting positions:', e);
         }
       }
+
+      // The global dimming extension will automatically pick up this editor's state
+      // No need to register per-editor extensions
 
       // Force editor refresh to apply decorations
       this.app.workspace.updateOptions();
@@ -471,14 +520,14 @@ export default class VariantEditor extends Plugin {
           if (modalClosed) {
             // Modal was closed without committing (via ESC key or clicking outside)
             // Clear the highlights
-            this.clearHighlight();
+            this.clearHighlightForEditor(editorView);
           } else if (commitVariant === true) {
             // Replace the variant with just the active variant text (commit action)
             if (variantText) {
               editor.replaceRange(variantText, updateFrom, updateTo);
               new Notice(`Committed variant: "${variantText}"`);
               // Clear highlights when committing
-              this.clearHighlight();
+              this.clearHighlightForEditor(editorView);
             }
           } else {
             // Create or update the variant syntax (normal variant creation/update)
@@ -496,25 +545,19 @@ export default class VariantEditor extends Plugin {
               to.ch = updateFrom.ch + variantSyntax.length;
 
               // Update selection positions for highlighting
-              const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-              if (activeView) {
-                const editorView = (activeView.editor as any).cm;
-                if (editorView) {
-                  try {
-                    // Convert updated line/ch positions to absolute character positions
-                    const fromPos = editorView.state.doc.line(updateFrom.line + 1).from + updateFrom.ch;
-                    const toPos = editorView.state.doc.line(updateFrom.line + 1).from + updateFrom.ch + variantSyntax.length;
+              try {
+                // Convert updated line/ch positions to absolute character positions
+                const fromPos = editorView.state.doc.line(updateFrom.line + 1).from + updateFrom.ch;
+                const toPos = editorView.state.doc.line(updateFrom.line + 1).from + updateFrom.ch + variantSyntax.length;
 
-                    // Update the exact selection range for highlighting
-                    this.selectionFrom = fromPos;
-                    this.selectionTo = toPos;
+                // Update the exact selection range for highlighting
+                editorState.selectionFrom = fromPos;
+                editorState.selectionTo = toPos;
 
-                    // Force editor refresh to update decorations
-                    this.app.workspace.updateOptions();
-                  } catch (e) {
-                    console.error('Error updating selection positions:', e);
-                  }
-                }
+                // Force editor refresh to update decorations
+                this.app.workspace.updateOptions();
+              } catch (e) {
+                console.error('Error updating selection positions:', e);
               }
 
               const action = isExistingVariant ? 'Updated' : 'Created';
@@ -522,7 +565,7 @@ export default class VariantEditor extends Plugin {
               if (commitVariant) {
                 new Notice(`${action} variant with ${variants.length} options (${variants[activeIdx]} active)`);
                 // Only clear highlights when committing
-                this.clearHighlight();
+                this.clearHighlightForEditor(editorView);
               }
               // Don't clear highlights during live updates
             }
@@ -616,18 +659,38 @@ export default class VariantEditor extends Plugin {
     }
   }
 
+  /**
+   * Clear highlighting for a specific editor
+   */
+  private clearHighlightForEditor(editorView: EditorView): void {
+    try {
+      // Get editor-specific state
+      const editorState = this.activeEditorDimming.get(editorView);
+
+      if (editorState) {
+        // Reset state for this editor
+        editorState.activeLine = null;
+        editorState.selectedText = null;
+        editorState.selectionFrom = null;
+        editorState.selectionTo = null;
+
+        // Force editor refresh to remove decorations
+        this.app.workspace.updateOptions();
+      }
+    } catch (e) {
+      console.error('Error in clearHighlightForEditor:', e);
+    }
+  }
+
+  /**
+   * Clear highlighting for all editors (legacy method for compatibility)
+   */
   private clearHighlight(): void {
     try {
-      // Reset state
-      this.activeLine = null;
-      this.previousCursorLine = null;
-      this.selectedText = null;
-      this.selectionFrom = null;
-      this.selectionTo = null;
-
-      // Force editor refresh
-      const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-      if (view) hackToRerender(view);
+      // Clear highlighting for all editors
+      for (const [editorView, editorState] of this.activeEditorDimming) {
+        this.clearHighlightForEditor(editorView);
+      }
     } catch (e) {
       console.error('Error in clearHighlight:', e);
     }
